@@ -13,7 +13,9 @@ namespace TrivialWebApiWithActor.Web
             return new WebHostBuilder()
                 .ConfigureServices(services =>
                 {
-                    services.AddSingleton(greeter);
+                    services.AddSingleton(
+                        new Actors(greeter)
+                    );
                 })
                 .UseStartup<Startup>()
                 .UseUrls("http://+:19123/")
@@ -30,7 +32,7 @@ namespace TrivialWebApiWithActor.Web
 
             public void Configure(IApplicationBuilder app, ILoggerFactory loggers)
             {
-                loggers.AddConsole(LogLevel.Warning);
+                loggers.AddConsole(LogLevel.Information);
                 
                 app.UseMvcWithDefaultRoute();
             }

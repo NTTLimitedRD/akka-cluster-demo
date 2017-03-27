@@ -8,12 +8,12 @@ namespace TrivialWebApiWithActor.Web
     public class GreetController
         : Controller
     {
-        readonly IActorRef _greeter;
+        readonly Actors _actors;
 
-        public GreetController(ILogger<GreetController> logger, IActorRef greeter)
+        public GreetController(ILogger<GreetController> logger, Actors actors)
         {
             Log = logger;
-            _greeter = greeter;
+            _actors = actors;
         }
 
         ILogger Log { get; }
@@ -22,7 +22,7 @@ namespace TrivialWebApiWithActor.Web
         {
             Log.LogInformation("Greeting '{Name}'...", name);
 
-            string greeting = await _greeter.Ask<string>(new GreetMe { Name = name });
+            string greeting = await _actors.Greeter.Ask<string>(new GreetMe { Name = name });
 
             return Ok(greeting);
         }
