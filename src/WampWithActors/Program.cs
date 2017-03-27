@@ -1,7 +1,6 @@
 ﻿using Akka.Actor;
 using Akka.Configuration;
 using System;
-using System.Reactive;
 using System.Threading;
 using WampSharp.V2;
 using WampSharp.V2.Realm;
@@ -63,9 +62,9 @@ namespace WampWithActors
 			IWampHostedRealm realm = host.RealmContainer.GetRealmByName("Actors");
 			realm.Services.GetSubject<string>("names").Subscribe(name =>
 			{
-				greeter.Tell(new GreetMe
+				greeter.Tell(new PrintGreet
 				{
-					Name = name
+					Name = name.ToString()
 				});
 			});
 

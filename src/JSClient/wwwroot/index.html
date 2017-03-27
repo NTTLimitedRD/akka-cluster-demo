@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Wamp Client</title>
+
+        <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+        <script src="js/autobahn.js"></script>
+    </head>
+    <body>
+        <h1>WAMP client</h1>
+        
+        <form id="frmGreet" action="#">
+            <input id="txtName" type="text">
+
+            <input id="btnSend" type="submit" value="Send" disabled="disabled">
+        </form>
+        <hr />
+        <div id="lblStatus">Initialising...</div>
+
+        <script type="text/javascript">
+            let currentSession = null;
+
+            $(() =>
+            {
+                const connection = new autobahn.Connection({
+                    url: "ws://localhost:19100",
+                    realm: "Actors"
+                });
+                connection.onopen = (session, details) =>
+                {
+                    currentSession = session;
+
+                    $("#lblStatus").text("Connected.");
+                    $("#btnSend").removeAttr("disabled");
+                };
+                connection.onclose = (reason, details) =>
+                {
+                    $("#lblStatus").text("Disconnected.");
+                    $("#btnSend").attr("disabled", "disabled");
+                };
+                
+                $("#lblStatus").text("Connecting...");
+                connection.open();
+
+                $("#frmGreet").submit(evt =>
+                {
+                    evt.preventDefault();
+
+                    $("#lblStatus").text("Sending...");
+
+                    currentSession.publish("names", [
+                        $("#txtName").val()
+                    ]);
+                    
+                    $("#lblStatus").text("Sent.");
+                });
+            });
+        </script>
+    </body>
+</html>
