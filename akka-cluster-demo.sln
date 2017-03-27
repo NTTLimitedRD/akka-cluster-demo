@@ -6,6 +6,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{A161D490-D57
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TrivialWebApiWithActor", "src\TrivialWebApiWithActor\TrivialWebApiWithActor.csproj", "{FD393354-7917-4A1C-B539-02AC4D627AC2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WampWithActors", "src\WampWithActors\WampWithActors.csproj", "{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,11 +30,24 @@ Global
 		{FD393354-7917-4A1C-B539-02AC4D627AC2}.Release|x64.Build.0 = Release|Any CPU
 		{FD393354-7917-4A1C-B539-02AC4D627AC2}.Release|x86.ActiveCfg = Release|Any CPU
 		{FD393354-7917-4A1C-B539-02AC4D627AC2}.Release|x86.Build.0 = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|x64.Build.0 = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Debug|x86.Build.0 = Debug|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|x64.ActiveCfg = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|x64.Build.0 = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|x86.ActiveCfg = Release|Any CPU
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{FD393354-7917-4A1C-B539-02AC4D627AC2} = {A161D490-D57B-4C01-A911-69C5ECE7BFB9}
+		{6DD09D55-6AD0-4371-B462-C9C22A3DBB8D} = {A161D490-D57B-4C01-A911-69C5ECE7BFB9}
 	EndGlobalSection
 EndGlobal
