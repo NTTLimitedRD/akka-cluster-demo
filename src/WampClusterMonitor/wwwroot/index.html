@@ -42,24 +42,29 @@
                         let nodePanel = nodePanels[message.Name];
                         if (!nodePanel)
                         {
-                            nodePanel = $(`
+                            const root = $(`
                                 <div class="card w-50">
                                     <div class="card-block">
-                                        <h4 class="card-title">${message.Name}</h4>
-                                        <h6 class="card-subtitle mb-2 text-muted">${message.State}</h6>
+                                        <h4 class="card-title node-name">${message.Name}</h4>
+                                        <h6 class="card-subtitle mb-2 text-muted node-state">${message.State}</h6>
                                     </div>
                                 </div>
                             `);
+                            nodePanel = {
+                                root: root,
+                                name: root.find("div .node-name"),
+                                state: root.find("div .node-state")
+                            };
                             nodePanels[message.Name] = nodePanel;
 
-                            $("#container").append(nodePanel);
+                            $("#container").append(nodePanel.root);
                         }
                         else
-                            nodePanel.children("div").children("h6").text(message.State);
+                            nodePanel.state.text(message.State);
 
                         if (message.State == "Removed")
                         {
-                            nodePanel.remove();
+                            nodePanel.root.remove();
                             delete nodePanels[message.Name];
                         }
                     });

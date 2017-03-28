@@ -74,17 +74,10 @@ namespace WampClusterMonitor
 				Console.WriteLine("Running (press enter to terminate).");
 				Console.ReadLine();
 
-				Console.WriteLine("Leaving cluster...");
+				Console.WriteLine("Leaving cluster and shutting down...");
+				system.ActorOf<Terminator>();
 
-				// TODO: Implement "Terminator" actor that does this and shuts down the system when it receives a message indicating we've left the cluster.
-				Cluster cluster = Cluster.Get(system);
-				cluster.Leave(cluster.SelfAddress);
-
-				Thread.Sleep(5000);
-
-				Console.WriteLine("Shutting down...");
-
-				system.Terminate().Wait();
+				system.WhenTerminated.Wait();
 			}
 
 			Console.WriteLine("Shutdown complete.");

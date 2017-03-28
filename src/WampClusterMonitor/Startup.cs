@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace WampClusterMonitor
@@ -13,7 +12,10 @@ namespace WampClusterMonitor
 			app.UseDeveloperExceptionPage();
 
 			app.UseStaticFiles();
-			app.UseDefaultFiles();
+			app.UseDefaultFiles(new DefaultFilesOptions
+			{
+				DefaultFileNames = { "index.html" }
+			});
         }
     }
 }
