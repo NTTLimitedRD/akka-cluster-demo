@@ -3,13 +3,16 @@
     <head>
         <title>Cluster monitor</title>
 
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+
         <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
-        <script src="js/autobahn.js"></script>
     </head>
     <body>
         <h1>Cluster monitor</h1>
         
-        <div id="lblMessages"></div>
+        <div id="container">
+
+        </div>
 
         <hr />
         <div id="lblStatus">Initialising...</div>
@@ -17,6 +20,8 @@
         <script type="text/javascript">
             $(() =>
             {
+                const nodePanels = {};
+
                 const connection = new autobahn.Connection({
                     url: "ws://localhost:19610",
                     realm: "ClusterMonitor"
@@ -30,7 +35,29 @@
                         const text = `'${message.Name}' => '${message.State}'`;
                         console.log(text);
 
-                        $("#lblMessages").append(text + "<br/>");
+                        let nodePanel = nodePanels[message.Name];
+                        if (!nodePanel)
+                        {
+                            nodePanel = $(`
+                                <div class="card">
+                                    <div class="card-block">
+                                        <h4 class="card-title">${message.Name}</h4>
+                                        <h6 class="card-subtitle mb-2 text-muted">${message.State}</h6>
+                                    </div>
+                                </div>
+                            `);
+                            nodePanels[message.Name] = nodePanel;
+
+                            $("#container").append(nodePanel);
+                        }
+                        else
+                            nodePanel.children("div").children("h6").text(message.State);
+
+                        if (message.State == "Removed")
+                        {
+                            nodePanel.remove();
+                            delete nodePanels[message.Name];
+                        }
                     });
 
                     $("#lblStatus").text("Connected.");
@@ -44,5 +71,8 @@
                 connection.open();
             });
         </script>
+
+        <script src="js/autobahn.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
     </body>
 </html>

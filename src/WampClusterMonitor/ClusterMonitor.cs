@@ -33,6 +33,16 @@ namespace WampClusterMonitor
 					State = "Left"
 				});
 			});
+			Receive<ClusterEvent.MemberRemoved>(removed =>
+			{
+				Console.WriteLine("[ClusterMonitor] MemberLeft: '{0}'", removed.Member.Address);
+
+				messages.OnNext(new ClusterNodeMessage
+				{
+					Name = removed.Member.Address.ToString(),
+					State = "Removed"
+				});
+			});
 			Receive<ClusterEvent.MemberUp>(up =>
 			{
 				Console.WriteLine("[ClusterMonitor] MemberUp: '{0}'", up.Member.Address);
@@ -52,6 +62,7 @@ namespace WampClusterMonitor
 			Cluster.Get(Context.System).Subscribe(Self,
 				typeof(ClusterEvent.MemberJoined),
 				typeof(ClusterEvent.MemberLeft),
+				typeof(ClusterEvent.MemberRemoved),
 				typeof(ClusterEvent.MemberUp)
 			);
 		}

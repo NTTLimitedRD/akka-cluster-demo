@@ -3,6 +3,7 @@ using Akka.Cluster;
 using Akka.Configuration;
 using System;
 using System.IO;
+using System.Threading;
 using WampSharp.V2;
 using WampSharp.V2.Realm;
 
@@ -53,6 +54,10 @@ namespace WampClusterMonitor
 				)
 				.WithFallback(BaseConfig);
 
+			SynchronizationContext.SetSynchronizationContext(
+				new SynchronizationContext()
+			);
+
 			using (IWampHost wampHost = CreateWampHost(listenPort + 200))
 			using (ActorSystem system = ActorSystem.Create("Cluster", config))
 			{
@@ -73,7 +78,11 @@ namespace WampClusterMonitor
 				Cluster cluster = Cluster.Get(system);
 				cluster.Leave(cluster.SelfAddress);
 
+				Thread.Sleep(5000);
+
 				Console.WriteLine("Shutting down...");
+
+				system.Terminate().Wait();
 			}
 
 			Console.WriteLine("Shutdown complete.");
