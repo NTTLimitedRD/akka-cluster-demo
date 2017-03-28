@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Wamp Client</title>
+
+        <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+        <script src="js/autobahn.js"></script>
+    </head>
+    <body>
+        <h1>Cluster monitor</h1>
+        
+        <div id="lblMessages"></div>
+
+        <hr />
+        <div id="lblStatus">Initialising...</div>
+
+        <script type="text/javascript">
+            $(() =>
+            {
+                const connection = new autobahn.Connection({
+                    url: "ws://localhost:19610",
+                    realm: "ClusterMonitor"
+                });
+                connection.onopen = (session, details) =>
+                {
+                    session.subscribe("cluster-nodes", args =>
+                    {
+                        const message = args[0];
+
+                        const text = `'${message.Name}' => '${message.State}'`;
+                        console.log(text);
+
+                        $("#lblMessages").append(text + "<br/>");
+                    });
+
+                    $("#lblStatus").text("Connected.");
+                };
+                connection.onclose = (reason, details) =>
+                {
+                    $("#lblStatus").text("Disconnected.");
+                };
+                
+                $("#lblStatus").text("Connecting...");
+                connection.open();
+            });
+        </script>
+    </body>
+</html>

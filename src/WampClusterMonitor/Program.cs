@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Cluster;
 using Akka.Configuration;
 using System;
 using System.IO;
@@ -52,23 +53,25 @@ namespace WampClusterMonitor
 				)
 				.WithFallback(BaseConfig);
 
-			IWampHost wampHost = listenPort == 19140 ? CreateWampHost(191600) : null;
-			using (wampHost)
+			using (IWampHost wampHost = CreateWampHost(listenPort + 200))
 			using (ActorSystem system = ActorSystem.Create("Cluster", config))
 			{
 				IWampHostedRealm realm = wampHost.RealmContainer.GetRealmByName("ClusterMonitor");
 
-				if (wampHost != null)
-				{
-					Console.WriteLine("Starting WAMP host...");
+				Console.WriteLine($"Starting WAMP host on port {listenPort + 200}...");
+				wampHost.Open();
 
-					system.ActorOf(Props.Create(
-						() => new ClusterMontor(realm)
-					));
-				}
+				system.ActorOf(Props.Create(
+					() => new ClusterMonitor(realm)
+				));
 
 				Console.WriteLine("Running (press enter to terminate).");
 				Console.ReadLine();
+
+				Console.WriteLine("Leaving cluster...");
+
+				Cluster cluster = Cluster.Get(system);
+				cluster.Leave(cluster.SelfAddress);
 
 				Console.WriteLine("Shutting down...");
 			}
