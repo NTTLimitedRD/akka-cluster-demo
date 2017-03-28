@@ -1,6 +1,7 @@
 ﻿using Akka.Actor;
 using Akka.Cluster;
 using Akka.Configuration;
+using Microsoft.AspNetCore.Hosting;
 using System;
 using System.IO;
 using System.Threading;
@@ -46,24 +47,24 @@ namespace WampClusterMonitor
 				return;
 			}
 
-			int listenPort = Int32.Parse(args[0]);
-
-			Config config =
-				ConfigurationFactory.ParseString(
-					$"akka.remote.helios.tcp.port={listenPort}"
-				)
-				.WithFallback(BaseConfig);
+			int akkaPort = Int32.Parse(args[0]);
+			int webPort = akkaPort + 100;
+			int wampPort = akkaPort + 200;
 
 			SynchronizationContext.SetSynchronizationContext(
 				new SynchronizationContext()
 			);
 
-			using (IWampHost wampHost = CreateWampHost(listenPort + 200))
-			using (ActorSystem system = ActorSystem.Create("Cluster", config))
+			using (IWebHost webHost = CreateWebHost(webPort))
+			using (IWampHost wampHost = CreateWampHost(wampPort))
+			using (ActorSystem system = CreateCluster(akkaPort))
 			{
 				IWampHostedRealm realm = wampHost.RealmContainer.GetRealmByName("ClusterMonitor");
 
-				Console.WriteLine($"Starting WAMP host on port {listenPort + 200}...");
+				Console.WriteLine($"Starting web host on port {akkaPort + 100}...");
+				webHost.Start();
+
+				Console.WriteLine($"Starting WAMP host on port {akkaPort + 200}...");
 				wampHost.Open();
 
 				system.ActorOf(Props.Create(
@@ -75,6 +76,7 @@ namespace WampClusterMonitor
 
 				Console.WriteLine("Leaving cluster...");
 
+				// TODO: Implement "Terminator" actor that does this and shuts down the system when it receives a message indicating we've left the cluster.
 				Cluster cluster = Cluster.Get(system);
 				cluster.Leave(cluster.SelfAddress);
 
@@ -91,6 +93,27 @@ namespace WampClusterMonitor
 		static IWampHost CreateWampHost(int port)
 		{
 			return new DefaultWampHost($"ws://127.0.0.1:{port}");
+		}
+
+		static IWebHost CreateWebHost(int port)
+		{
+			return new WebHostBuilder()
+				.UseKestrel()
+				.UseUrls($"http://+:{port}")
+				.UseContentRoot(Directory.GetCurrentDirectory())
+				.UseStartup<Startup>()
+				.Build();
+		}
+
+		static ActorSystem CreateCluster(int port)
+		{
+			Config config =
+				ConfigurationFactory.ParseString(
+					$"akka.remote.helios.tcp.port={port}"
+				)
+				.WithFallback(BaseConfig);
+
+			return ActorSystem.Create("Cluster", config);
 		}
 	}
 }
