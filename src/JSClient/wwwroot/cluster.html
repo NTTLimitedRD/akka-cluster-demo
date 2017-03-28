@@ -41,8 +41,8 @@
                             nodePanel = $(`
                                 <div class="card w-50">
                                     <div class="card-block">
-                                        <h4 class="card-title">${message.Name}</h4>
-                                        <h6 class="card-subtitle mb-2 text-muted">${message.State}</h6>
+                                        <h4 class="card-title node-name">${message.Name}</h4>
+                                        <h6 class="card-subtitle mb-2 text-muted node-state">${message.State}</h6>
                                     </div>
                                 </div>
                             `);
@@ -51,7 +51,7 @@
                             $("#container").append(nodePanel);
                         }
                         else
-                            nodePanel.children("div").children("h6").text(message.State);
+                            nodePanel.find("div h6.node-state").text(message.State);
 
                         if (message.State == "Removed")
                         {
