@@ -12,6 +12,7 @@ namespace WampClusterMonitor
 		public ClusterMonitor(IWampHostedRealm realm)
 		{
 			ISubject<ClusterNodeMessage> messages = realm.Services.GetSubject<ClusterNodeMessage>("cluster-nodes");
+
 			Receive<ClusterEvent.MemberJoined>(joined =>
 			{
 				Console.WriteLine("[ClusterMonitor] MemberJoined: '{0}'", joined.Member.Address);
