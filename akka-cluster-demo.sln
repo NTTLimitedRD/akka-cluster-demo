@@ -14,9 +14,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WampClusterMonitor", "src\W
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracts", "src\Contracts\Contracts.csproj", "{1102B5DA-BC74-4461-AD8E-E319A90D6C35}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "src\ConsoleApp1\ConsoleApp1.csproj", "{288ADFA8-D296-45C8-B4E1-55E5DA87A4BF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClusterServers", "src\ConsoleApp1\ClusterServers.csproj", "{288ADFA8-D296-45C8-B4E1-55E5DA87A4BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp2", "src\ConsoleApp2\ConsoleApp2.csproj", "{51E71EC3-173A-4DEB-B393-19DF262116C9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleClient", "src\ConsoleApp2\SimpleClient.csproj", "{51E71EC3-173A-4DEB-B393-19DF262116C9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Innovation Demo", "Innovation Demo", "{399BADE4-6D8D-41AF-8184-D8479C418F15}"
 EndProject

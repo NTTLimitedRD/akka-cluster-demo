@@ -3,7 +3,7 @@ using Contracts;
 using System;
 using System.Threading;
 
-namespace ConsoleApp1
+namespace ClusterServers
 {
     public class Worker : UntypedActor
     {
