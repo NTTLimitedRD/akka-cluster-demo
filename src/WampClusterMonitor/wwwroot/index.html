@@ -3,15 +3,14 @@
     <head>
         <title>Cluster monitor</title>
 
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+        <link rel="stylesheet" href="css/semantic.css">
 
         <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
     </head>
     <body>
         <h1>Cluster monitor</h1>
         
-        <div id="container">
-
+        <div id="container" class="ui two column doubling stackable grid container">
         </div>
 
         <hr />
@@ -43,17 +42,19 @@
                         if (!nodePanel)
                         {
                             const root = $(`
-                                <div class="card w-50">
-                                    <div class="card-block">
-                                        <h4 class="card-title node-name">${message.Name}</h4>
-                                        <h6 class="card-subtitle mb-2 text-muted node-state">${message.State}</h6>
+                                <div class="ui card">
+                                    <div class="content">
+                                        <a class="header node-name">${message.Name}</h4>
+                                        <div class="meta">
+                                            <span class="node-state">${message.State}</span>
+                                        </div>
                                     </div>
                                 </div>
                             `);
                             nodePanel = {
                                 root: root,
-                                name: root.find("div .node-name"),
-                                state: root.find("div .node-state")
+                                name: root.find("div.content a.node-name"),
+                                state: root.find("div.content div.meta span.node-state")
                             };
                             nodePanels[message.Name] = nodePanel;
 
@@ -68,6 +69,7 @@
                             delete nodePanels[message.Name];
                         }
                     });
+                    session.publish("refresh-cluster-state", [true]);
 
                     $("#lblStatus").text("Connected.");
                 };
@@ -82,7 +84,6 @@
         </script>
 
         <script src="js/autobahn.js"></script>
-        <script src="js/tether.js"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+        <script src="js/semantic.js"></script>
     </body>
 </html>
