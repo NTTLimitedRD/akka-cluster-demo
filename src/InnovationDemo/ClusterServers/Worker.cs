@@ -26,5 +26,7 @@ namespace ClusterServers
                 JobId = job.JobId
             });
         }
+
+        public static Props Create(int workerId) => Props.Create(() => new Worker(workerId));
     }
 }

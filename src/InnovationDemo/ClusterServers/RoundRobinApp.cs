@@ -2,7 +2,7 @@
 using Akka.Configuration;
 using Akka.Routing;
 
-namespace ConsoleApp1
+namespace ClusterServers
 {
     public class RoundRobinApp
     {
@@ -12,12 +12,13 @@ namespace ConsoleApp1
         {
             using (var system = ActorSystem.Create("MySystem"))
             {
-
-
-                system.ActorOf<Worker>("Worker1");
-                system.ActorOf<Worker>("Worker2");
-                system.ActorOf<Worker>("Worker3");
-                system.ActorOf<Worker>("Worker4");
+                for (int workerId = 1; workerId <= 4; workerId++)
+                {
+                    system.ActorOf(
+                        Worker.Create(workerId),
+                        name: $"Worker{workerId}"
+                    );
+                }
 
                 var config = ConfigurationFactory.ParseString(@"
 routees.paths = [
