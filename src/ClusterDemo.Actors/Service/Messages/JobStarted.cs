@@ -2,14 +2,16 @@
 
 namespace ClusterDemo.Actors.Service.Messages
 {
-    public class WorkerAvailable
+    public class JobStarted
         : IWorkerEvent
     {
-        public WorkerAvailable(IActorRef worker)
+        public JobStarted(IActorRef worker, int id)
         {
             Worker = worker;
+            Id = id;
         }
 
         public IActorRef Worker { get; }
+        public int Id { get; }
     }
 }

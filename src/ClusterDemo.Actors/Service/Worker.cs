@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace ClusterDemo.Actors.Service
 {
+    using Common;
     using Messages;
-    using System.Threading;
 
     public class Worker
         : ReceiveActorEx
@@ -38,14 +38,14 @@ namespace ClusterDemo.Actors.Service
                 );
 
                 // TODO: Call fake work API.
-
                 // For now, just reply after random delay.
+                TimeSpan jobExecutionTime = TimeSpan.FromSeconds(
+                    new Random().Next(3, 5)
+                );
                 Context.System.Scheduler.ScheduleTellOnce(
-                    delay: TimeSpan.FromSeconds(
-                        new Random().Next(3, 5)
-                    ),
+                    delay: jobExecutionTime,
                     receiver: Sender,
-                    message: new JobCompleted(executeJob.Id,
+                    message: new JobCompleted(executeJob.Id, Self, jobExecutionTime,
                         $"Job {executeJob.Id} completed successfully."
                     ),
                     sender: Self

@@ -6,6 +6,7 @@ using PubSub = Akka.Cluster.Tools.PublishSubscribe;
 
 namespace ClusterDemo.Actors.Service
 {
+    using Common;
     using Common.Messages;
     using Messages;
 
@@ -114,8 +115,8 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            Log.Info("Dispatcher started: {DispatcherPath}",
-                Self.Path.ToStringWithAddress()
+            Log.Info("Dispatcher started on node: {DispatcherNodeAddress}",
+                Self.Path.Address
             );
 
             // Tell interested parties that a Dispatcher is now available.
@@ -130,21 +131,17 @@ namespace ClusterDemo.Actors.Service
             if (_dispatchCancellation != null)
                 return;
 
-            _dispatchCancellation = Context.System.Scheduler.ScheduleTellOnceCancelable(
+            _dispatchCancellation = ScheduleTellSelfOnceCancelable(
                 delay: TimeSpan.FromSeconds(1),
-                receiver: Self,
-                message: Dispatch.Instance,
-                sender: Self
+                message: Dispatch.Instance
              );
         }
 
         ICancelable ScheduleJobTimeout(int jobId)
         {
-            return Context.System.Scheduler.ScheduleTellOnceCancelable(
+            return ScheduleTellSelfOnceCancelable(
                 delay: TimeSpan.FromSeconds(10),
-                receiver: Self,
-                message: new JobTimeout(jobId),
-                sender: Self
+                message: new JobTimeout(jobId)
             );
         }
 
