@@ -1,9 +1,8 @@
 ﻿using Akka.Actor;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+using PubSub = Akka.Cluster.Tools.PublishSubscribe;
 
 namespace ClusterDemo.Actors.Service
 {
@@ -16,12 +15,16 @@ namespace ClusterDemo.Actors.Service
         readonly Queue<Job> _pendingJobs = new Queue<Job>();
         readonly Queue<IActorRef> _availableWorkers = new Queue<IActorRef>();
         readonly Dictionary<int, Job> _activeJobs = new Dictionary<int, Job>();
+        readonly Dictionary<IActorRef, int> _activeJobsByWorker = new Dictionary<IActorRef, int>();
 
         int _nextJobId = 1;
+        IActorRef _pubSub;
         ICancelable _dispatchCancellation;
 
         public Dispatcher()
         {
+            // TODO: Use ClusterSingletonManager to ensure that we're only running a single instance of the dispatcher in the cluster.
+
             Receive<CreateJob>(createJob =>
             {
                 int jobId = _nextJobId++;
@@ -30,6 +33,12 @@ namespace ClusterDemo.Actors.Service
                     id: jobId,
                     name: createJob.Name
                  ));
+                ScheduleDispatch();
+            });
+            Receive<WorkerAvailable>(workerAvailable =>
+            {
+                _availableWorkers.Enqueue(workerAvailable.Worker);
+
                 ScheduleDispatch();
             });
             Receive<Dispatch>(_ =>
@@ -43,25 +52,71 @@ namespace ClusterDemo.Actors.Service
                         id: pendingJob.Id,
                         name: pendingJob.Name
                     ));
-
-                    ICancelable timeout = Context.System.Scheduler.ScheduleTellOnceCancelable(
-                        delay: TimeSpan.FromSeconds(10),
-                        receiver: Self,
-                        message: new JobTimeout(pendingJob.Id),
-                        sender: Self
+                    _activeJobsByWorker.Add(worker,
+                        pendingJob.Id
                     );
+                    Context.Watch(worker);
+
+                    ICancelable timeout = ScheduleJobTimeout(pendingJob.Id);
 
                     _activeJobs.Add(pendingJob.Id,
                         pendingJob.WithWorker(worker, timeout)
                     );
                 }
             });
+            Receive<JobCompleted>(jobCompleted =>
+            {
+                Log.Info("Worker {Worker} reports job {JobId} is complete.",
+                    Sender.Path,
+                    jobCompleted.Id
+                );
+
+                Job job = _activeJobs[jobCompleted.Id];
+                job.Timeout.Cancel();
+
+                _activeJobsByWorker.Remove(Sender);
+                _activeJobs.Remove(jobCompleted.Id);
+            });
             Receive<JobTimeout>(jobTimeout =>
             {
                 Job job = _activeJobs[jobTimeout.Id];
 
-                // TODO: Log and handle job timeout.
+                Log.Info("Job {JobId} timed out.",
+                    job.Id
+                );
+
+                _activeJobsByWorker.Remove(Sender);
+                _activeJobs.Remove(jobTimeout.Id);
+
+                // TODO: Handle job timeout.
             });
+            Receive<Terminated>(terminated =>
+            {
+                int jobId;
+                if (!_activeJobsByWorker.TryGetValue(terminated.ActorRef, out jobId))
+                    return;
+
+                Log.Info("Worker {Worker} terminated while processing job {JobId}.",
+                    terminated.ActorRef.Path,
+                    jobId
+                );
+
+                // TODO: Handle worker termination.
+
+                _activeJobsByWorker.Remove(terminated.ActorRef);
+                _activeJobs.Remove(jobId);
+            });
+        }
+
+        protected override void PreStart()
+        {
+            base.PreStart();
+
+            // Tell interested parties that a Dispatcher is now available.
+            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
+            _pubSub.Tell(new PubSub.Send("dispatcher",
+                new DispatcherAvailable(Self)
+            ));
         }
 
         void ScheduleDispatch()
@@ -75,6 +130,16 @@ namespace ClusterDemo.Actors.Service
                 message: Dispatch.Instance,
                 sender: Self
              );
+        }
+
+        ICancelable ScheduleJobTimeout(int jobId)
+        {
+            return Context.System.Scheduler.ScheduleTellOnceCancelable(
+                delay: TimeSpan.FromSeconds(10),
+                receiver: Self,
+                message: new JobTimeout(jobId),
+                sender: Self
+            );
         }
 
         class Dispatch
