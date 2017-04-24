@@ -115,5 +115,69 @@ namespace ClusterDemo.Actors
 
             return configBuilder;
         }
+
+        public static ConfigBuilder SuppressJsonSerializerWarning(this ConfigBuilder configBuilder)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.suppress-json-serializer-warning"] = "on";
+
+            return configBuilder;
+        }
+
+        public static ConfigBuilder UseRemoting(this ConfigBuilder configBuilder, string hostName, int port)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.remote.helios.tcp.hostname"] = hostName;
+            configBuilder.Entries["akka.remote.helios.tcp.port"] = port;
+
+            return configBuilder;
+        }
+
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, params string[] seedNodes)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            if (seedNodes.Length > 0)
+                configBuilder.Entries["akka.cluster.seed-nodes"] = new List<string>(seedNodes);
+
+            return configBuilder.UseClusterActorRefProvider();
+        }
+
+        public static ConfigBuilder UseClusterActorRefProvider(this ConfigBuilder configBuilder)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+            
+            return configBuilder.UseActorRefProvider("Akka.Cluster.ClusterActorRefProvider, Akka.Cluster");
+        }
+
+        public static ConfigBuilder UseActorRefProvider<TProvider>(this ConfigBuilder configBuilder)
+            where TProvider : IActorRefProvider
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            Type providerType = typeof(TProvider);
+
+            return configBuilder.UseActorRefProvider(String.Format("{0}, {1}",
+                providerType.FullName,
+                providerType.Assembly.GetName().Name
+            ));
+        }
+
+        public static ConfigBuilder UseActorRefProvider(this ConfigBuilder configBuilder, string providerType)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.actor.provider"] = providerType;
+
+            return configBuilder;
+        }
     }
 }

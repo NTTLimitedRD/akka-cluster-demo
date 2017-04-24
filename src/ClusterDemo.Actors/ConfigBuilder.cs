@@ -23,12 +23,7 @@ namespace ClusterDemo.Actors
             },
             Formatting = Formatting.None
         };
-
-        /// <summary>
-        ///		The underlying configuration entries.
-        /// </summary>
-        readonly Dictionary<string, object> _entries = new Dictionary<string, object>();
-
+        
         /// <summary>
         ///		Create a new <see cref="ConfigBuilder"/>.
         /// </summary>
@@ -39,7 +34,7 @@ namespace ClusterDemo.Actors
         /// <summary>
         ///		The underlying configuration entries.
         /// </summary>
-        public Dictionary<string, object> Entries => _entries;
+        public Dictionary<string, object> Entries { get; } = new Dictionary<string, object>();
 
         /// <summary>
         ///		Build an Akka <see cref="Config"/> from the underlying configuration entries.
@@ -63,9 +58,9 @@ namespace ClusterDemo.Actors
         public string BuildHocon()
         {
             StringBuilder hoconBuilder = new StringBuilder();
-            foreach (string key in _entries.Keys)
+            foreach (string key in Entries.Keys)
             {
-                string value = FormatHoconLiteral(_entries[key]);
+                string value = FormatHoconLiteral(Entries[key]);
 
                 hoconBuilder.AppendFormat("{0} = {1}\n", key, value);
             }
