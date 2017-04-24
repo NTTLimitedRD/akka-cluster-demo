@@ -3,10 +3,12 @@ using Akka.Cluster;
 using Akka.Cluster.Tools.Singleton;
 using Akka.Configuration;
 using Akka.Logger.Serilog;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ClusterDemo.Actors.Service
@@ -37,11 +39,45 @@ namespace ClusterDemo.Actors.Service
                 if (_system != null)
                     throw new ArgumentNullException("Cluster app is already running.");
 
+                Log.Information("Starting actor system...");
                 _system = ActorSystem.Create(
                     name: "ClusterApp",
                     config: CreateConfig()
                 );
+
+                Log.Information("Joining cluster...");
                 Cluster.Get(_system).JoinSeedNodes(_seedNodes);
+
+                // Start the dispatcher as a cluster-wide singleton.
+                _system.ActorOf(
+                    ClusterSingletonManager.Props(
+                        singletonProps: Props.Create<Dispatcher>(),
+                        terminationMessage: PoisonPill.Instance, // TODO: Use a more-specific message
+                        settings: ClusterSingletonManagerSettings.Create(_system)
+
+                    ),
+                    name: Dispatcher.ActorName
+                );
+            }
+        }
+
+        public void Stop()
+        {
+            lock (_stateLock)
+            {
+                if (_system == null)
+                    throw new ArgumentNullException("Cluster app is not running.");
+
+                Log.Information("Leaving cluster...");
+                Cluster.Get(_system).LeaveAsync(CancellationToken.None)
+                    .ContinueWith(_ =>
+                    {
+                        Log.Information("Terminating actor system...");
+
+                        _system.Terminate();
+                        _system = null;
+                    })
+                    .Wait();
             }
         }
 

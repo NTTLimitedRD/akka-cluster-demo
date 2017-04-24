@@ -12,6 +12,8 @@ namespace ClusterDemo.Actors.Service
     public class Dispatcher
         : ReceiveActorEx
     {
+        public static readonly string ActorName = "dispatcher";
+
         readonly Queue<Job> _pendingJobs = new Queue<Job>();
         readonly Queue<IActorRef> _availableWorkers = new Queue<IActorRef>();
         readonly Dictionary<int, Job> _activeJobs = new Dictionary<int, Job>();
@@ -111,6 +113,10 @@ namespace ClusterDemo.Actors.Service
         protected override void PreStart()
         {
             base.PreStart();
+
+            Log.Info("Dispatcher started: {DispatcherPath}",
+                Self.Path.ToStringWithAddress()
+            );
 
             // Tell interested parties that a Dispatcher is now available.
             _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;

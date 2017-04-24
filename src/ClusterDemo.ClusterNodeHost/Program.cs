@@ -29,6 +29,8 @@ namespace ClusterDemo.ClusterNodeHost
                 app.Start();
 
                 Console.ReadLine();
+
+                app.Stop();
             }
             catch (Exception unexpectedError)
             {
