@@ -30,6 +30,9 @@ namespace ClusterDemo.Actors.Service
 
             Receive<DispatcherAvailable>(dispatcherAvailable =>
             {
+                if (_dispatcher.Equals(dispatcherAvailable.Dispatcher))
+                    return;
+
                 _dispatcher = dispatcherAvailable.Dispatcher;
 
                 Become(WaitingForJob);

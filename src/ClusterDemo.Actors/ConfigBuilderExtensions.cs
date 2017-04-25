@@ -137,6 +137,30 @@ namespace ClusterDemo.Actors
             return configBuilder;
         }
 
+        public static ConfigBuilder UseClusterClient(this ConfigBuilder configBuilder, IEnumerable<Address> clusterContactNodes)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.cluster.client.initial-contacts"] = new List<string>(
+                clusterContactNodes.Select(
+                    clusterContactNode => clusterContactNode.ToString() + "/system/receptionist"
+                )
+            );
+
+            return configBuilder;
+        }
+
+        public static ConfigBuilder UseClusterClient(this ConfigBuilder configBuilder, IEnumerable<string> clusterContactNodes)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.cluster.client.initial-contacts"] = new List<string>(clusterContactNodes);
+
+            return configBuilder;
+        }
+
         public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes, int? minNumberOfMembers = null)
         {
             if (configBuilder == null)
@@ -177,6 +201,14 @@ namespace ClusterDemo.Actors
                 throw new ArgumentNullException(nameof(configBuilder));
             
             return configBuilder.UseActorRefProvider("Akka.Cluster.ClusterActorRefProvider, Akka.Cluster");
+        }
+
+        public static ConfigBuilder UseRemoteActorRefProvider(this ConfigBuilder configBuilder)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            return configBuilder.UseActorRefProvider("Akka.Remote.RemoteActorRefProvider, Akka.Remote");
         }
 
         public static ConfigBuilder UseActorRefProvider<TProvider>(this ConfigBuilder configBuilder)

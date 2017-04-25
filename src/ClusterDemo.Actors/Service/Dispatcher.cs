@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Cluster.Tools.Client;
 using System;
 using System.Collections.Generic;
 
@@ -32,6 +33,8 @@ namespace ClusterDemo.Actors.Service
             {
                 int jobId = _nextJobId++;
 
+                Log.Info("Dispatcher is creating job {JobId}.", jobId);
+
                 _pendingJobs.Enqueue(new Job(
                     id: jobId,
                     name: createJob.Name
@@ -40,16 +43,28 @@ namespace ClusterDemo.Actors.Service
             });
             Receive<WorkerAvailable>(workerAvailable =>
             {
+                Log.Info("Dispatcher has available worker {Worker}.", workerAvailable.Worker);
+
                 _availableWorkers.Enqueue(workerAvailable.Worker);
 
                 ScheduleDispatch();
             });
             Receive<Dispatch>(_ =>
             {
+                Log.Info("Dispatcher is beginning dispatch cycle ({AvailableWorkerCount} workers, {PendingJobCount} jobs).",
+                    _availableWorkers.Count,
+                    _pendingJobs.Count
+                );
+
                 while (_pendingJobs.Count > 0 && _availableWorkers.Count > 0)
                 {
                     Job pendingJob = _pendingJobs.Dequeue();
                     IActorRef worker = _availableWorkers.Dequeue();
+
+                    Log.Info("Dispatcher is dispatching job {JobId} to worker {Worker}.",
+                        pendingJob.Id,
+                        worker.Path
+                    );
 
                     worker.Tell(new ExecuteJob(
                         id: pendingJob.Id,
@@ -66,11 +81,15 @@ namespace ClusterDemo.Actors.Service
                         pendingJob.WithWorker(worker, timeout)
                     );
                 }
+
+                _dispatchCancellation = null;
+
+                Log.Info("Dispatcher has completed dispatch cycle.");
             });
             Receive<JobCompleted>(jobCompleted =>
             {
                 Log.Info("Worker {Worker} reports job {JobId} is complete.",
-                    Sender.Path,
+                    jobCompleted.Worker.Path,
                     jobCompleted.Id
                 );
 
@@ -79,6 +98,7 @@ namespace ClusterDemo.Actors.Service
 
                 _activeJobsByWorker.Remove(Sender);
                 _activeJobs.Remove(jobCompleted.Id);
+                Context.Unwatch(jobCompleted.Worker);
             });
             Receive<JobTimeout>(jobTimeout =>
             {
@@ -115,9 +135,13 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            Log.Info("Dispatcher started on node: {DispatcherNodeAddress}",
-                Self.Path.Address
+            Log.Info("Dispatcher started: {Dispatcher}",
+                Self.Path.ToStringWithAddress()
             );
+
+            // Register so we're available to clients outside the cluster.
+            ClusterClientReceptionist receptionist = ClusterClientReceptionist.Get(Context.System);
+            receptionist.RegisterSubscriber("dispatcher", Self);
 
             // Tell interested parties that a Dispatcher is now available.
             _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;

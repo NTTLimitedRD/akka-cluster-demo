@@ -1,5 +1,6 @@
 ﻿using Akka.Actor;
 using Akka.Cluster;
+using Akka.Cluster.Tools.Client;
 using Akka.Cluster.Tools.Singleton;
 using Akka.Configuration;
 using Akka.Logger.Serilog;
@@ -49,9 +50,6 @@ namespace ClusterDemo.Actors.Service
                     config: CreateConfig()
                 );
 
-                // Warm up distributed publish / subscribe.
-                Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system);
-
                 // Worker pool (one per node).
                 IActorRef workerPool = _system.ActorOf(
                     WorkerPool.Create(workerCount: 5),
@@ -76,7 +74,7 @@ namespace ClusterDemo.Actors.Service
 
                 // Dispatcher (cluster-wide singleton).
                 // TODO: Work out why there are dead-lettered messages relating to distributed PubSub (they don't include the address part of the actor path, which may be a configuration issue).
-                _system.ActorOf(
+                IActorRef dispatcher = _system.ActorOf(
                     ClusterSingletonManager.Props(
                         singletonProps: Props.Create<Dispatcher>(),
                         terminationMessage: PoisonPill.Instance, // TODO: Use a more-specific message
@@ -84,9 +82,9 @@ namespace ClusterDemo.Actors.Service
                     ),
                     name: Dispatcher.ActorName
                 );
-    
+
                 Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system).Mediator.Tell(
-                    new Akka.Cluster.Tools.PublishSubscribe.Send("dispatcher",
+                    new Akka.Cluster.Tools.PublishSubscribe.Publish("dispatcher",
                         new Messages.DispatcherAvailable(statsCollector)
                     )
                 );

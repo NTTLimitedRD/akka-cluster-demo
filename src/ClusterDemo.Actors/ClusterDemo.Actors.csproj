@@ -17,8 +17,4 @@
     <PackageReference Include="WampSharp.Default.Client" Version="1.2.5.35-beta" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Client\" />
-  </ItemGroup>
-
 </Project>

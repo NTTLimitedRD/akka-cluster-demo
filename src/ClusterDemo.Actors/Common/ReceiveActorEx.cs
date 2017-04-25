@@ -67,7 +67,7 @@ namespace ClusterDemo.Actors.Common
         protected void ScheduleTellSelfOnce(TimeSpan delay, object message)
         {
             Context.System.Scheduler.ScheduleTellOnce(
-                delay: TimeSpan.FromSeconds(1),
+                delay: delay,
                 receiver: Self,
                 message: message,
                 sender: Self
@@ -77,7 +77,7 @@ namespace ClusterDemo.Actors.Common
         protected ICancelable ScheduleTellSelfOnceCancelable(TimeSpan delay, object message)
         {
             return Context.System.Scheduler.ScheduleTellOnceCancelable(
-                delay: TimeSpan.FromSeconds(1),
+                delay: delay,
                 receiver: Self,
                 message: message,
                 sender: Self
