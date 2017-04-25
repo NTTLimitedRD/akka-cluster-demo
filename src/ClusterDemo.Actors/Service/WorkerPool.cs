@@ -18,13 +18,13 @@ namespace ClusterDemo.Actors.Service
         readonly List<IActorRef> _workers = new List<IActorRef>();
 
         IActorRef _workerEvents;
-        IActorRef _pubSub;
+        PubSub.DistributedPubSub _pubSub;
 
         public WorkerPool(int workerCount, IActorRef workerEvents)
         {
             _workerCount = workerCount;
             _workerEvents = workerEvents;
-            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
+            _pubSub = PubSub.DistributedPubSub.Get(Context.System);
 
             Log.Info("Worker pool {WorkerPool} started.", Self);
 
@@ -77,9 +77,7 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            _pubSub.Tell(
-                new PubSub.Subscribe("dispatcher", Self)
-            );
+            _pubSub.Subscribe("dispatcher", Self);
         }
 
         void CreateWorkers()

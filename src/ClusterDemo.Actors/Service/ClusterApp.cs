@@ -12,6 +12,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
+using PubSub = Akka.Cluster.Tools.PublishSubscribe;
+
 namespace ClusterDemo.Actors.Service
 {
     public class ClusterApp
@@ -91,10 +93,8 @@ namespace ClusterDemo.Actors.Service
                     StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
                 );
 
-                Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system).Mediator.Tell(
-                    new Akka.Cluster.Tools.PublishSubscribe.Publish("dispatcher",
-                        new Messages.DispatcherAvailable(statsCollector)
-                    )
+                PubSub.DistributedPubSub.Get(_system).Publish("dispatcher",
+                    new Messages.DispatcherAvailable(statsCollector)
                 );
             }
         }

@@ -1,11 +1,11 @@
 ﻿using Serilog;
 using System;
+using System.IO;
 using System.Threading;
 
 namespace ClusterDemo.ClusterNodeHost
 {
     using Actors.Service;
-    using WampSharp.V2;
 
     class Program
     {
@@ -19,6 +19,8 @@ namespace ClusterDemo.ClusterNodeHost
 
             try
             {
+                Log.Information("Starting cluster...");
+
                 ClusterApp app = new ClusterApp(
                     actorSystemName: "ClusterDemo",
                     host: "127.0.0.1",
@@ -28,9 +30,13 @@ namespace ClusterDemo.ClusterNodeHost
                 );
                 app.Start();
 
+                Log.Information("Cluster running (press enter to terminate).");
+
                 Console.ReadLine();
 
+                Log.Information("Stopping cluster...");
                 app.Stop();
+                Log.Information("Cluster stopped.");
             }
             catch (Exception unexpectedError)
             {
@@ -44,7 +50,19 @@ namespace ClusterDemo.ClusterNodeHost
 
         static void ConfigureLogging()
         {
+            string[] commandLine = Environment.GetCommandLineArgs();
+            commandLine[0] = Path.GetFileNameWithoutExtension(commandLine[0]);
+
             Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .Enrich.WithProperty(
+                    name: "Program",
+                    value: String.Join(" ", commandLine)
+                )
+                .WriteTo.Seq("http://localhost:5341/",
+                    apiKey: "MHXFLikIgkbTIsfJuTYP",
+                    period: TimeSpan.FromSeconds(1)
+                )
                 .WriteTo.ColoredConsole(
                     outputTemplate: "[{Level}] {Message}{NewLine}{Exception}"
                 )

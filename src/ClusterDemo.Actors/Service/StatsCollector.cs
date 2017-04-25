@@ -3,9 +3,11 @@ using System;
 
 namespace ClusterDemo.Actors.Service
 {
-    using Akka.Cluster;
     using Common;
+    using Common.Messages;
     using Messages;
+
+    // TODO: Store creation, start, and end times for each job. This will make it easier to calculate stats.
 
     public class StatsCollector
         : ReceiveActorEx
@@ -59,6 +61,15 @@ namespace ClusterDemo.Actors.Service
         protected override void PreStart()
         {
             base.PreStart();
+
+            _workerEvents.Tell(
+                new Subscribe(Self, eventTypes: new[]
+                {
+                    typeof(JobCreated),
+                    typeof(JobStarted),
+                    typeof(JobCompleted)
+                })
+            );
 
             ScheduleTellSelfRepeatedly(
                 interval: TimeSpan.FromSeconds(3),

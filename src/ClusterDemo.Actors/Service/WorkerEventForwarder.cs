@@ -14,18 +14,18 @@ namespace ClusterDemo.Actors.Service
     using Messages;
 
     public class WorkerEventForwarder
-        : ReceiveActorEx, IWithBoundedStash
+        : ReceiveActorEx, IWithUnboundedStash
     {
         public static readonly string ActorName = "worker-event-forwarder";
 
         readonly IActorRef _workerEvents;
-        readonly IActorRef _pubSub;
+        readonly PubSub.DistributedPubSub _pubSub;
         bool _isDispatcherLocal;
 
         public WorkerEventForwarder(IActorRef workerEvents)
         {
             _workerEvents = workerEvents;
-            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
+            _pubSub = PubSub.DistributedPubSub.Get(Context.System);
         }
 
         public IStash Stash { get; set; }
@@ -76,10 +76,7 @@ namespace ClusterDemo.Actors.Service
                 if (_isDispatcherLocal)
                     return;
 
-                _pubSub.Tell(new PubSub.Publish(
-                    topic: "worker",
-                    message: workerEvent
-                ));
+                _pubSub.Publish("worker", workerEvent);
             });
 
             Receive<DispatcherAvailable>(dispatcherAvailable =>
@@ -116,9 +113,7 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            _pubSub.Tell(
-                new PubSub.Subscribe("dispatcher", Self)
-            );
+            _pubSub.Subscribe("dispatcher", Self);
 
             Become(WaitingForDispatcher);
         }

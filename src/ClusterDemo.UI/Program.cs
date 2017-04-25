@@ -23,45 +23,49 @@ namespace ClusterDemo.UI
                 new SynchronizationContext()
             );
 
-            Log.Logger = new LoggerConfiguration()
-                .Enrich.FromLogContext()
-                .WriteTo.ColoredConsole()
-                .CreateLogger();
+            ConfigureLogging();
 
-            using (IWebHost webHost = CreateWebHost(webPort))
-            using (IWampHost wampHost = CreateWampHost(wampPort))
+            try
             {
-                Console.WriteLine($"Starting web host on port {webPort}...");
-                webHost.Start();
-
-                Console.WriteLine($"Starting WAMP host on port {wampPort}...");
-                IWampHostedRealm realm = wampHost.RealmContainer.GetRealmByName("ClusterDemo");
-                realm.SessionCreated += (sender, args) =>
+                using (IWebHost webHost = CreateWebHost(webPort))
+                using (IWampHost wampHost = CreateWampHost(wampPort))
                 {
-                    Log.Information("WAMP session {SessionId} created.",
-                        args.SessionId
-                    );
-                };
-                realm.SessionClosed += (sender, args) =>
-                {
-                    Log.Information("WAMP session {SessionId} closed.",
-                        args.SessionId
-                    );
-                };
-                wampHost.Open();
+                    Log.Information("Starting web host on port {WebPort}...", webPort);
+                    webHost.Start();
 
-                // Well-known topics.
-                realm.TopicContainer.CreateTopicByUri("cluster.node.state", persistent: true);
-                realm.TopicContainer.CreateTopicByUri("cluster.node.statistics", persistent: true);
-                realm.TopicContainer.CreateTopicByUri("cluster.node.state.refresh", persistent: true);
+                    Log.Information("Starting WAMP host on port {WampPort}...", wampPort);
+                    IWampHostedRealm realm = wampHost.RealmContainer.GetRealmByName("ClusterDemo");
+                    realm.SessionCreated += (sender, args) =>
+                    {
+                        Log.Information("WAMP session {SessionId} created.",
+                            args.SessionId
+                        );
+                    };
+                    realm.SessionClosed += (sender, args) =>
+                    {
+                        Log.Information("WAMP session {SessionId} closed.",
+                            args.SessionId
+                        );
+                    };
+                    wampHost.Open();
 
-                Console.WriteLine("Running (press enter to terminate).");
-                Console.ReadLine();
+                    // Well-known topics.
+                    realm.TopicContainer.CreateTopicByUri("cluster.node.state", persistent: true);
+                    realm.TopicContainer.CreateTopicByUri("cluster.node.statistics", persistent: true);
+                    realm.TopicContainer.CreateTopicByUri("cluster.node.state.refresh", persistent: true);
 
-                Console.WriteLine("Shutting down...");
+                    Log.Information("Running (press enter to terminate).");
+                    Console.ReadLine();
+
+                    Log.Information("Shutting down...");
+                }
+
+                Log.Information("Shutdown complete.");
             }
-
-            Console.WriteLine("Shutdown complete.");
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
 
         static IWampHost CreateWampHost(int port)
@@ -77,6 +81,27 @@ namespace ClusterDemo.UI
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<Startup>()
                 .Build();
+        }
+
+        static void ConfigureLogging()
+        {
+            string[] commandLine = Environment.GetCommandLineArgs();
+            commandLine[0] = Path.GetFileNameWithoutExtension(commandLine[0]);
+
+            Log.Logger = new LoggerConfiguration()
+                .Enrich.FromLogContext()
+                .Enrich.WithProperty(
+                    name: "Program",
+                    value: String.Join(" ", commandLine)
+                )
+                .WriteTo.Seq("http://localhost:5341/",
+                    apiKey: "MHXFLikIgkbTIsfJuTYP",
+                    period: TimeSpan.FromSeconds(1)
+                )
+                .WriteTo.ColoredConsole(
+                    outputTemplate: "[{Level}] {Message}{NewLine}{Exception}"
+                )
+                .CreateLogger();
         }
 
         class TopicDumpSubscriber

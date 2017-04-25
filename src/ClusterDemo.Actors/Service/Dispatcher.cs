@@ -23,13 +23,13 @@ namespace ClusterDemo.Actors.Service
         readonly IActorRef _workerEvents;
 
         int _nextJobId = 1;
-        IActorRef _pubSub;
+        PubSub.DistributedPubSub _pubSub;
         ICancelable _dispatchCancellation;
 
         public Dispatcher(IActorRef workerEvents)
         {
             _workerEvents = workerEvents;
-            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
+            _pubSub = PubSub.DistributedPubSub.Get(Context.System);
         }
 
         void Ready()
@@ -154,23 +154,22 @@ namespace ClusterDemo.Actors.Service
                     typeof(JobCompleted)
                 })
             );
-            _pubSub.Tell(
-                new PubSub.Subscribe("worker", Self)
-            );
+            _pubSub.Subscribe("worker", Self);
 
             // Register so we're available to clients outside the cluster.
             ClusterClientReceptionist receptionist = ClusterClientReceptionist.Get(Context.System);
             receptionist.RegisterSubscriber("dispatcher", Self);
 
             // Tell interested parties that a Dispatcher is now available.
-            _pubSub.Tell(new PubSub.Publish("dispatcher",
+            _pubSub.Publish("dispatcher",
                 new DispatcherAvailable(Self)
-            ));
+            );
 
+            // Periodically republish our availability.
             Context.System.Scheduler.ScheduleTellRepeatedly(
                 initialDelay: TimeSpan.FromSeconds(5),
                 interval: TimeSpan.FromSeconds(10),
-                receiver: _pubSub,
+                receiver: _pubSub.Mediator,
                 message: new PubSub.Publish("dispatcher",
                     new DispatcherAvailable(Self)
                 ),
