@@ -202,5 +202,16 @@ namespace ClusterDemo.Actors
 
             return configBuilder;
         }
+
+        public static ConfigBuilder UseHyperionSerializer(this ConfigBuilder configBuilder)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            configBuilder.Entries["akka.actor.serializers.wire"] = "Akka.Serialization.HyperionSerializer, Akka.Serialization.Hyperion";
+            configBuilder.Entries["akka.actor.serialization-bindings.\"System.Object\""] = "wire";
+
+            return configBuilder;
+        }
     }
 }

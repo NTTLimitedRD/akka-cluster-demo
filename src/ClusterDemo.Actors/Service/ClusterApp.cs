@@ -50,8 +50,13 @@ namespace ClusterDemo.Actors.Service
                 );
 
                 // Warm up distributed publish / subscribe.
-                Log.Information("Initialising distributed publish / subscribe...");
                 Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system);
+
+                // Worker pool (one per node).
+                IActorRef workerPool = _system.ActorOf(
+                    WorkerPool.Create(workerCount: 5),
+                    name: WorkerPool.ActorName
+                );
 
                 // Node monitor (one per node).
                 IActorRef nodeMonitor = _system.ActorOf(
@@ -78,6 +83,12 @@ namespace ClusterDemo.Actors.Service
                         settings: ClusterSingletonManagerSettings.Create(_system)
                     ),
                     name: Dispatcher.ActorName
+                );
+    
+                Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system).Mediator.Tell(
+                    new Akka.Cluster.Tools.PublishSubscribe.Send("dispatcher",
+                        new Messages.DispatcherAvailable(statsCollector)
+                    )
                 );
             }
         }
@@ -109,7 +120,7 @@ namespace ClusterDemo.Actors.Service
                 .SetLogLevel(Akka.Event.LogLevel.InfoLevel)
                 .UseCluster(_seedNodes, minNumberOfMembers: 1 /* for demo purposes, we have a small cluster to play with */)
                 .UseRemoting(LocalNodeAddress.Host, LocalNodeAddress.Port.Value)
-                .SuppressJsonSerializerWarning()
+                .UseHyperionSerializer()
                 .Build();
         }
     }

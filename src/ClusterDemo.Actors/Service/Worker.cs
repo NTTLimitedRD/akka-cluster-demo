@@ -20,15 +20,19 @@ namespace ClusterDemo.Actors.Service
         {
             _id = id;
             _dispatcher = dispatcher;
-
-            Become(WaitingForJob);
         }
 
         public void WaitingForJob()
         {
+            _dispatcher.Tell(
+                new WorkerAvailable(Self)
+            );
+
             Receive<DispatcherAvailable>(dispatcherAvailable =>
             {
                 _dispatcher = dispatcherAvailable.Dispatcher;
+
+                Become(WaitingForJob);
             });
             Receive<ExecuteJob>(executeJob =>
             {
@@ -42,15 +46,37 @@ namespace ClusterDemo.Actors.Service
                 TimeSpan jobExecutionTime = TimeSpan.FromSeconds(
                     new Random().Next(3, 5)
                 );
-                Context.System.Scheduler.ScheduleTellOnce(
+                ScheduleTellSelfOnce(
                     delay: jobExecutionTime,
-                    receiver: Sender,
                     message: new JobCompleted(executeJob.Id, Self, jobExecutionTime,
                         $"Job {executeJob.Id} completed successfully."
-                    ),
-                    sender: Self
+                    )
                 );
+
+                Become(ExecutingJob);
             });
+        }
+
+        void ExecutingJob()
+        {
+            Receive<JobCompleted>(jobCompleted =>
+            {
+                _dispatcher.Tell(jobCompleted);
+
+                Become(WaitingForJob);
+            });
+        }
+
+        protected override void PreStart()
+        {
+            base.PreStart();
+
+            Become(WaitingForJob);
+        }
+
+        public static Props Create(int id, IActorRef dispatcher)
+        {
+            return Props.Create<Worker>(id, dispatcher);
         }
     }
 }

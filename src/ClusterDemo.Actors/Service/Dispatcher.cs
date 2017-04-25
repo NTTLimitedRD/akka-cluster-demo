@@ -121,9 +121,19 @@ namespace ClusterDemo.Actors.Service
 
             // Tell interested parties that a Dispatcher is now available.
             _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
-            _pubSub.Tell(new PubSub.Send("dispatcher",
+            _pubSub.Tell(new PubSub.Publish("dispatcher",
                 new DispatcherAvailable(Self)
             ));
+
+            Context.System.Scheduler.ScheduleTellRepeatedly(
+                initialDelay: TimeSpan.FromSeconds(10),
+                interval: TimeSpan.FromSeconds(5),
+                receiver: _pubSub,
+                message: new PubSub.Publish("dispatcher",
+                    new DispatcherAvailable(Self)
+                ),
+                sender: Self
+            );
         }
 
         void ScheduleDispatch()
