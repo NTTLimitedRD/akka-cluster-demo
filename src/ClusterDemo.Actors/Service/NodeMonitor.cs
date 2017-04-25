@@ -52,9 +52,7 @@ namespace ClusterDemo.Actors.Service
             });
             ReceiveAsync<NodeStats>(async nodeStats =>
             {
-                await _statsTopic.Publish(new PublishOptions(),
-                    new object[] { nodeStats }
-                );
+                await PublishStatistics(nodeStats);
             });
 
             Receive<ConnectionState>(connectionState =>

@@ -48,7 +48,11 @@ namespace ClusterDemo.Actors.Service
                     name: LocalNodeAddress.System,
                     config: CreateConfig()
                 );
-                
+
+                // Warm up distributed publish / subscribe.
+                Log.Information("Initialising distributed publish / subscribe...");
+                Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system);
+
                 // Node monitor (one per node).
                 IActorRef nodeMonitor = _system.ActorOf(
                     NodeMonitor.Create(_wampHostUri),
@@ -103,7 +107,7 @@ namespace ClusterDemo.Actors.Service
             return new ConfigBuilder()
                 .AddLogger<SerilogLogger>()
                 .SetLogLevel(Akka.Event.LogLevel.InfoLevel)
-                .UseCluster(_seedNodes)
+                .UseCluster(_seedNodes, minNumberOfMembers: 1 /* for demo purposes, we have a small cluster to play with */)
                 .UseRemoting(LocalNodeAddress.Host, LocalNodeAddress.Port.Value)
                 .SuppressJsonSerializerWarning()
                 .Build();

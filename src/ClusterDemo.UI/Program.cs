@@ -55,15 +55,6 @@ namespace ClusterDemo.UI
                 realm.TopicContainer.CreateTopicByUri("cluster.node.statistics", persistent: true);
                 realm.TopicContainer.CreateTopicByUri("cluster.node.state.refresh", persistent: true);
 
-                // Temporary diagnostic dump of cluster node-status events.
-                realm.TopicContainer.GetTopicByUri("cluster.node.state").Subscribe(
-                    new TopicDumpSubscriber("cluster.node.state")
-                );
-                // Temporary diagnostic dump of cluster node-status events.
-                realm.TopicContainer.GetTopicByUri("cluster.node.statistics").Subscribe(
-                    new TopicDumpSubscriber("cluster.node.statistics")
-                );
-
                 Console.WriteLine("Running (press enter to terminate).");
                 Console.ReadLine();
 

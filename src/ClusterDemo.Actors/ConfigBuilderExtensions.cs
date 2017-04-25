@@ -137,30 +137,36 @@ namespace ClusterDemo.Actors
             return configBuilder;
         }
 
-        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes)
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes, int? minNumberOfMembers = null)
         {
             if (configBuilder == null)
                 throw new ArgumentNullException(nameof(configBuilder));
 
-            if (seedNodes == null)
-                throw new ArgumentNullException(nameof(seedNodes));
+            if (seedNodes != null)
+            {
+                configBuilder.Entries["akka.cluster.seed-nodes"] = new List<string>(
+                    seedNodes.Select(
+                        seedNodeAddress => seedNodeAddress.ToString()
+                    )
+                );
+            }
 
-            configBuilder.Entries["akka.cluster.seed-nodes"] = new List<string>(
-                seedNodes.Select(
-                    seedNodeAddress => seedNodeAddress.ToString()
-                )
-            );
+            if (minNumberOfMembers != null)
+                configBuilder.Entries["akka.cluster.min-nr-of-members"] = minNumberOfMembers;
 
             return configBuilder.UseClusterActorRefProvider();
         }
 
-        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, params string[] seedNodes)
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<string> seedNodes = null, int? minNumberOfMembers = null)
         {
             if (configBuilder == null)
                 throw new ArgumentNullException(nameof(configBuilder));
 
-            if (seedNodes.Length > 0)
+            if (seedNodes != null)
                 configBuilder.Entries["akka.cluster.seed-nodes"] = new List<string>(seedNodes);
+
+            if (minNumberOfMembers != null)
+                configBuilder.Entries["akka.cluster.min-nr-of-members"] = minNumberOfMembers;
 
             return configBuilder.UseClusterActorRefProvider();
         }
