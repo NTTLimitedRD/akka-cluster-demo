@@ -17,6 +17,8 @@ namespace ClusterDemo.Actors.Service
     public class NodeMonitor
         : ReceiveActorEx
     {
+        public static readonly string ActorName = "node-monitor";
+
         readonly Uri    _wampHostUri;
         IWampChannel    _wampChannel;
         IWampTopicProxy _statsTopic;
@@ -108,6 +110,11 @@ namespace ClusterDemo.Actors.Service
 
             _wampChannel.Close();
             _wampChannel = null;
+        }
+
+        public static Props Create(Uri wampHostUri)
+        {
+            return Props.Create<NodeMonitor>(wampHostUri);
         }
 
         enum ConnectionState

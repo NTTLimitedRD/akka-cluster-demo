@@ -1,7 +1,7 @@
 ﻿using Akka.Actor;
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using AkkaLogLevel = Akka.Event.LogLevel;
 
 namespace ClusterDemo.Actors
@@ -135,6 +135,23 @@ namespace ClusterDemo.Actors
             configBuilder.Entries["akka.remote.helios.tcp.port"] = port;
 
             return configBuilder;
+        }
+
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes)
+        {
+            if (configBuilder == null)
+                throw new ArgumentNullException(nameof(configBuilder));
+
+            if (seedNodes == null)
+                throw new ArgumentNullException(nameof(seedNodes));
+
+            configBuilder.Entries["akka.cluster.seed-nodes"] = new List<string>(
+                seedNodes.Select(
+                    seedNodeAddress => seedNodeAddress.ToString()
+                )
+            );
+
+            return configBuilder.UseClusterActorRefProvider();
         }
 
         public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, params string[] seedNodes)

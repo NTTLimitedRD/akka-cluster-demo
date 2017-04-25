@@ -16,14 +16,13 @@ namespace ClusterDemo.Actors.Service
     public class ClusterApp
     {
         readonly object _stateLock = new object();
-        readonly int _port;
-        readonly Address[] _seedNodes;
+        readonly Address[]  _seedNodes;
         Uri _wampHostUri;
         ActorSystem _system;
 
-        public ClusterApp(int port, string[] seedNodes, Uri wampHostUri)
+        public ClusterApp(string actorSystemName, string host, int port, string[] seedNodes, Uri wampHostUri)
         {
-            _port = port;
+            LocalNodeAddress = new Address("akka.tcp", actorSystemName, host, port);
 
             if (seedNodes.Length == 0)
                 throw new ArgumentException("Must specify at least one seed node.", nameof(seedNodes));
@@ -35,6 +34,8 @@ namespace ClusterDemo.Actors.Service
             _wampHostUri = wampHostUri;
         }
 
+        Address LocalNodeAddress { get; }
+
         public void Start()
         {
             lock (_stateLock)
@@ -42,19 +43,26 @@ namespace ClusterDemo.Actors.Service
                 if (_system != null)
                     throw new ArgumentNullException("Cluster app is already running.");
 
-                Log.Information("Starting actor system...");
+                Log.Information("Starting actor system {LocalNodeAddress}...", LocalNodeAddress);
                 _system = ActorSystem.Create(
-                    name: "ClusterApp",
+                    name: LocalNodeAddress.System,
                     config: CreateConfig()
                 );
-
-                Log.Information("Joining cluster...");
-                Cluster.Get(_system).JoinSeedNodes(_seedNodes);
-
-                // Node monitor (noe per node).
+                
+                // Node monitor (one per node).
                 IActorRef nodeMonitor = _system.ActorOf(
-                    Props.Create(() => new NodeMonitor(_wampHostUri))
-                        .WithSupervisorStrategy(SupervisorStrategy.DefaultStrategy)
+                    NodeMonitor.Create(_wampHostUri),
+                    name: NodeMonitor.ActorName
+                );
+
+                // Worker event bus (one per node).
+                IActorRef workerEvents = _system.ActorOf(
+                    Props.Create<WorkerEvents>(),
+                    name: WorkerEvents.ActorName
+                );
+
+                IActorRef statsCollector = _system.ActorOf(
+                    StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
                 );
 
                 // Dispatcher (cluster-wide singleton).
@@ -95,8 +103,8 @@ namespace ClusterDemo.Actors.Service
             return new ConfigBuilder()
                 .AddLogger<SerilogLogger>()
                 .SetLogLevel(Akka.Event.LogLevel.InfoLevel)
-                .UseClusterActorRefProvider()
-                .UseRemoting("127.0.0.1", _port)
+                .UseCluster(_seedNodes)
+                .UseRemoting(LocalNodeAddress.Host, LocalNodeAddress.Port.Value)
                 .SuppressJsonSerializerWarning()
                 .Build();
         }

@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Immutable;
 
-namespace ClusterDemo.Actors.Service.Messages
+namespace ClusterDemo.Actors.Service
 {
     using Common;
+    using Messages;
 
     public class WorkerEvents
         : EventBusActor<IWorkerEvent>
     {
+        public static readonly string ActorName = "worker-events";
+
         public WorkerEvents()
         {
         }

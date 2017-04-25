@@ -20,12 +20,10 @@ namespace ClusterDemo.ClusterNodeHost
             try
             {
                 ClusterApp app = new ClusterApp(
+                    actorSystemName: "ClusterDemo",
+                    host: "127.0.0.1",
                     port: Int32.Parse(args[0]),
-                    seedNodes: new[]
-                    {
-                        "akka.tcp://ClusterApp@127.0.0.1:14121",
-                        "akka.tcp://ClusterApp@127.0.0.1:14122"
-                    },
+                    seedNodes: new[] { "akka.tcp://ClusterDemo@127.0.0.1:14121" },
                     wampHostUri: new Uri("ws://127.0.0.1:14501")
                 );
                 app.Start();

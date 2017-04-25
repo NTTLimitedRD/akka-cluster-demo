@@ -3,24 +3,27 @@ using System;
 
 namespace ClusterDemo.Actors.Service
 {
+    using Akka.Cluster;
     using Common;
     using Messages;
 
     public class StatsCollector
         : ReceiveActorEx
     {
-        readonly IActorRef _nodeMonitor;
-        readonly IActorRef _workerEvents;
+        readonly IActorRef  _nodeMonitor;
+        readonly IActorRef  _workerEvents;
+        readonly Address    _localNodeAddress;
         
         int _availableWorkerCount;
         int _activeWorkerCount;
         TimeSpan _averageJobExecutionTime;
         TimeSpan _averageJobTurnaroundTime; // TODO: Calculate this as the period between job start and end times.
 
-        public StatsCollector(IActorRef nodeMonitor, IActorRef workerEvents)
+        public StatsCollector(IActorRef nodeMonitor, IActorRef workerEvents, Address localNodeAddress)
         {
             _nodeMonitor = nodeMonitor;
             _workerEvents = workerEvents;
+            _localNodeAddress = localNodeAddress;
 
             Receive<WorkerAvailable>(workerAvailable =>
             {
@@ -44,10 +47,11 @@ namespace ClusterDemo.Actors.Service
             Receive<PublishStats>(_ =>
             {
                 _nodeMonitor.Tell(new NodeStats(
-                    nodeAddress: Self.Path.Address.ToString(),
+                    nodeAddress: _localNodeAddress.ToString(),
                     availableWorkerCount: _availableWorkerCount,
                     activeWorkerCount: _activeWorkerCount,
-                    averageJobExecutionTime: _averageJobExecutionTime
+                    averageJobExecutionTime: _averageJobExecutionTime,
+                    averageJobTurnaroundTime: _averageJobTurnaroundTime
                 ));
             });
         }
@@ -57,9 +61,14 @@ namespace ClusterDemo.Actors.Service
             base.PreStart();
 
             ScheduleTellSelfRepeatedly(
-                interval: TimeSpan.FromSeconds(1),
+                interval: TimeSpan.FromSeconds(3),
                 message: PublishStats.Instance
             );
+        }
+
+        public static Props Create(IActorRef nodeMonitor, IActorRef workerEvents, Address localNodeAddress)
+        {
+            return Props.Create<StatsCollector>(nodeMonitor, workerEvents, localNodeAddress);
         }
 
         class PublishStats
