@@ -75,9 +75,7 @@ namespace ClusterDemo.Actors.Service
                         id: pendingJob.Id,
                         name: pendingJob.Name
                     ));
-                    _activeJobsByWorker.Add(worker,
-                        pendingJob.Id
-                    );
+                    _activeJobsByWorker[worker] = pendingJob.Id;
                     Context.Watch(worker);
 
                     ICancelable timeout = ScheduleJobTimeout(pendingJob.Id);

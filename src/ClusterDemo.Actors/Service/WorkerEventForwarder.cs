@@ -97,6 +97,7 @@ namespace ClusterDemo.Actors.Service
             _workerEvents.Tell(
                 new Subscribe(Self, eventTypes: new[]
                 {
+                    typeof(WorkerAvailable),
                     typeof(JobCreated),
                     typeof(JobStarted),
                     typeof(JobCompleted)
