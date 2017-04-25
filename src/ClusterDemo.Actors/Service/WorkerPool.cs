@@ -17,67 +17,31 @@ namespace ClusterDemo.Actors.Service
         readonly int _workerCount;
         readonly List<IActorRef> _workers = new List<IActorRef>();
 
-        IActorRef _dispatcher;
+        IActorRef _workerEvents;
         IActorRef _pubSub;
 
-        public WorkerPool(int workerCount)
+        public WorkerPool(int workerCount, IActorRef workerEvents)
         {
             _workerCount = workerCount;
-
-            Log.Info("Worker Pool started.");
-
-            // Tell interested parties that a Dispatcher is now available.
-            Log.Info("WorkerPool subcribing to dispatcher availability...");
+            _workerEvents = workerEvents;
             _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
-            _pubSub.Tell(
-                new PubSub.Subscribe("dispatcher", Self)
-            );
-        }
 
-        void WaitingForDispatcher()
-        {
-            Log.Info("Worker pool '{WorkerPool}' is waiting for the dispatcher to become available.", Self.Path);
-
-            Receive<PubSub.SubscribeAck>(subscribed =>
-            {
-                Log.Info("WorkerPool got SubscribeAck for '{Topic}'", subscribed.Subscribe.Topic);
-            });
-            Receive<DispatcherAvailable>(dispatcherAvailable =>
-            {
-                CaptureDispatcher(dispatcherAvailable);
-
-                Become(Ready);
-            });
-            HandleWorkerTermination();
-        }
-
-        void Ready()
-        {
-            Log.Info("Worker pool '{WorkerPool}' has found the dispatcher and is now creating workers.", Self.Path);
+            Log.Info("Worker pool {WorkerPool} started.", Self);
 
             CreateWorkers();
 
-            Log.Info("Worker pool '{WorkerPool}' created {WorkerCount} workers.",
+            Log.Info("Worker pool {WorkerPool} created {WorkerCount} workers.",
                 Self.Path,
                 _workerCount
             );
 
             Receive<DispatcherAvailable>(dispatcherAvailable =>
             {
-                _dispatcher = dispatcherAvailable.Dispatcher;
-
-                // Notify all workers.
-                Context.ActorSelection("*").Tell(dispatcherAvailable);
+                Context.ActorSelection("*")
+                    .Tell(dispatcherAvailable);
             });
+
             HandleWorkerTermination();
-        }
-
-        void CaptureDispatcher(DispatcherAvailable dispatcherAvailable)
-        {
-            _dispatcher = dispatcherAvailable.Dispatcher;
-
-            // Notify all workers.
-            Context.ActorSelection("*").Tell(dispatcherAvailable);
         }
 
         void HandleWorkerTermination()
@@ -113,7 +77,9 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            Become(WaitingForDispatcher);
+            _pubSub.Tell(
+                new PubSub.Subscribe("dispatcher", Self)
+            );
         }
 
         void CreateWorkers()
@@ -121,7 +87,7 @@ namespace ClusterDemo.Actors.Service
             for (int workerId = 1; workerId <= _workerCount; workerId++)
             {
                 IActorRef worker = Context.ActorOf(
-                    Worker.Create(workerId, _dispatcher),
+                    Worker.Create(workerId, _workerEvents),
                     name: $"worker-{workerId}"
                 );
                 Context.Watch(worker);
@@ -129,9 +95,9 @@ namespace ClusterDemo.Actors.Service
             }
         }
 
-        public static Props Create(int workerCount)
+        public static Props Create(int workerCount, IActorRef workerEvents)
         {
-            return Props.Create<WorkerPool>(workerCount);
+            return Props.Create<WorkerPool>(workerCount, workerEvents);
         }
     }
 }

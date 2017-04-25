@@ -50,12 +50,6 @@ namespace ClusterDemo.Actors.Service
                     config: CreateConfig()
                 );
 
-                // Worker pool (one per node).
-                IActorRef workerPool = _system.ActorOf(
-                    WorkerPool.Create(workerCount: 5),
-                    name: WorkerPool.ActorName
-                );
-
                 // Node monitor (one per node).
                 IActorRef nodeMonitor = _system.ActorOf(
                     NodeMonitor.Create(_wampHostUri),
@@ -68,19 +62,33 @@ namespace ClusterDemo.Actors.Service
                     name: WorkerEvents.ActorName
                 );
 
-                IActorRef statsCollector = _system.ActorOf(
-                    StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
+                // Worker event-forwarder.
+                IActorRef workerEventForwarder = _system.ActorOf(
+                    Props.Create(
+                        () => new WorkerEventForwarder(workerEvents)
+                    ),
+                    name: WorkerEventForwarder.ActorName
                 );
 
                 // Dispatcher (cluster-wide singleton).
-                // TODO: Work out why there are dead-lettered messages relating to distributed PubSub (they don't include the address part of the actor path, which may be a configuration issue).
                 IActorRef dispatcher = _system.ActorOf(
                     ClusterSingletonManager.Props(
-                        singletonProps: Props.Create<Dispatcher>(),
+                        singletonProps: Dispatcher.Create(workerEvents),
                         terminationMessage: PoisonPill.Instance, // TODO: Use a more-specific message
                         settings: ClusterSingletonManagerSettings.Create(_system)
                     ),
                     name: Dispatcher.ActorName
+                );
+
+                // Worker pool (one per node).
+                IActorRef workerPool = _system.ActorOf(
+                    WorkerPool.Create(workerCount: 5, workerEvents: workerEvents),
+                    name: WorkerPool.ActorName
+                );
+
+                // Node statistics collector (one per node).
+                IActorRef statsCollector = _system.ActorOf(
+                    StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
                 );
 
                 Akka.Cluster.Tools.PublishSubscribe.DistributedPubSub.Get(_system).Mediator.Tell(

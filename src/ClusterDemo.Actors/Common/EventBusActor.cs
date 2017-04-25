@@ -76,7 +76,7 @@ namespace ClusterDemo.Actors.Common
         {
             protected override Type GetClassifier(TEvent evt) => evt.GetType();
 
-            protected override bool Classify(TEvent evt, Type classifier) => classifier.IsAssignableFrom(evt.GetType());
+            protected override bool Classify(TEvent evt, Type eventType) => eventType.IsInstanceOfType(evt);
 
             protected override bool IsSubClassification(Type parent, Type child) => parent.IsAssignableFrom(child);
 

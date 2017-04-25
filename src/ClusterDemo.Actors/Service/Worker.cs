@@ -1,9 +1,5 @@
 ﻿using Akka.Actor;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ClusterDemo.Actors.Service
 {
@@ -14,29 +10,24 @@ namespace ClusterDemo.Actors.Service
         : ReceiveActorEx
     {
         readonly int _id;
-        IActorRef _dispatcher;
+        readonly IActorRef _workerEvents;
 
-        public Worker(int id, IActorRef dispatcher)
+        IActorRef _currentDispatcher;
+
+
+        public Worker(int id, IActorRef workerEvents)
         {
             _id = id;
-            _dispatcher = dispatcher;
+            _workerEvents = workerEvents;
         }
 
         public void WaitingForJob()
         {
-            _dispatcher.Tell(
+            Log.Info("Worker {Worker} waiting for job.", Self.Path);
+            _workerEvents.Tell(
                 new WorkerAvailable(Self)
             );
 
-            Receive<DispatcherAvailable>(dispatcherAvailable =>
-            {
-                if (_dispatcher.Equals(dispatcherAvailable.Dispatcher))
-                    return;
-
-                _dispatcher = dispatcherAvailable.Dispatcher;
-
-                Become(WaitingForJob);
-            });
             Receive<ExecuteJob>(executeJob =>
             {
                 Log.Info("Worker {Worker} executing job {JobId}...",
@@ -58,13 +49,27 @@ namespace ClusterDemo.Actors.Service
 
                 Become(ExecutingJob);
             });
+
+            // If dispatcher moves or is restarted, re-announce ourselves.
+            Receive<DispatcherAvailable>(dispatcherAvailable =>
+            {
+                if (_currentDispatcher != null && _currentDispatcher.Equals(dispatcherAvailable.Dispatcher))
+                    return;
+
+                _currentDispatcher = dispatcherAvailable.Dispatcher;
+                _workerEvents.Tell(
+                    new WorkerAvailable(Self)
+                );
+            });
         }
 
         void ExecutingJob()
         {
             Receive<JobCompleted>(jobCompleted =>
             {
-                _dispatcher.Tell(jobCompleted);
+                Log.Info("Worker {Worker} completed job {JobId}.", Self.Path, jobCompleted.Id);
+
+                _workerEvents.Tell(jobCompleted);
 
                 Become(WaitingForJob);
             });
@@ -77,9 +82,9 @@ namespace ClusterDemo.Actors.Service
             Become(WaitingForJob);
         }
 
-        public static Props Create(int id, IActorRef dispatcher)
+        public static Props Create(int id, IActorRef workerEvents)
         {
-            return Props.Create<Worker>(id, dispatcher);
+            return Props.Create<Worker>(id, workerEvents);
         }
     }
 }

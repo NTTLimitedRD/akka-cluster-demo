@@ -20,15 +20,20 @@ namespace ClusterDemo.Actors.Service
         readonly Queue<IActorRef> _availableWorkers = new Queue<IActorRef>();
         readonly Dictionary<int, Job> _activeJobs = new Dictionary<int, Job>();
         readonly Dictionary<IActorRef, int> _activeJobsByWorker = new Dictionary<IActorRef, int>();
+        readonly IActorRef _workerEvents;
 
         int _nextJobId = 1;
         IActorRef _pubSub;
         ICancelable _dispatchCancellation;
 
-        public Dispatcher()
+        public Dispatcher(IActorRef workerEvents)
         {
-            // TODO: Use ClusterSingletonManager to ensure that we're only running a single instance of the dispatcher in the cluster.
+            _workerEvents = workerEvents;
+            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
+        }
 
+        void Ready()
+        {
             Receive<CreateJob>(createJob =>
             {
                 int jobId = _nextJobId++;
@@ -88,6 +93,9 @@ namespace ClusterDemo.Actors.Service
             });
             Receive<JobCompleted>(jobCompleted =>
             {
+                if (Sender == Self)
+                    return; // BUG: Message is delivered twice (probably due to new worker event bus logic). FIXME!
+
                 Log.Info("Worker {Worker} reports job {JobId} is complete.",
                     jobCompleted.Worker.Path,
                     jobCompleted.Id
@@ -96,7 +104,7 @@ namespace ClusterDemo.Actors.Service
                 Job job = _activeJobs[jobCompleted.Id];
                 job.Timeout.Cancel();
 
-                _activeJobsByWorker.Remove(Sender);
+                _activeJobsByWorker.Remove(jobCompleted.Worker);
                 _activeJobs.Remove(jobCompleted.Id);
                 Context.Unwatch(jobCompleted.Worker);
             });
@@ -139,25 +147,39 @@ namespace ClusterDemo.Actors.Service
                 Self.Path.ToStringWithAddress()
             );
 
+            // Subscribe to worker events (local and remote).
+            _workerEvents.Tell(
+                new Subscribe(Self, eventTypes: new[]
+                {
+                    typeof(WorkerAvailable),
+                    typeof(JobStarted),
+                    typeof(JobCompleted)
+                })
+            );
+            _pubSub.Tell(
+                new PubSub.Subscribe("worker", Self)
+            );
+
             // Register so we're available to clients outside the cluster.
             ClusterClientReceptionist receptionist = ClusterClientReceptionist.Get(Context.System);
             receptionist.RegisterSubscriber("dispatcher", Self);
 
             // Tell interested parties that a Dispatcher is now available.
-            _pubSub = PubSub.DistributedPubSub.Get(Context.System).Mediator;
             _pubSub.Tell(new PubSub.Publish("dispatcher",
                 new DispatcherAvailable(Self)
             ));
 
             Context.System.Scheduler.ScheduleTellRepeatedly(
-                initialDelay: TimeSpan.FromSeconds(10),
-                interval: TimeSpan.FromSeconds(5),
+                initialDelay: TimeSpan.FromSeconds(5),
+                interval: TimeSpan.FromSeconds(10),
                 receiver: _pubSub,
                 message: new PubSub.Publish("dispatcher",
                     new DispatcherAvailable(Self)
                 ),
                 sender: Self
             );
+
+            Become(Ready);
         }
 
         void ScheduleDispatch()
@@ -177,6 +199,11 @@ namespace ClusterDemo.Actors.Service
                 delay: TimeSpan.FromSeconds(10),
                 message: new JobTimeout(jobId)
             );
+        }
+
+        public static Props Create(IActorRef workerEvents)
+        {
+            return Props.Create<Dispatcher>(workerEvents);
         }
 
         class Dispatch
