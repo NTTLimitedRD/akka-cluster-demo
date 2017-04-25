@@ -51,11 +51,17 @@ namespace ClusterDemo.UI
                 wampHost.Open();
 
                 // Well-known topics.
-                realm.TopicContainer.CreateTopicByUri("cluster.node-stats", persistent: true);
+                realm.TopicContainer.CreateTopicByUri("cluster.node.state", persistent: true);
+                realm.TopicContainer.CreateTopicByUri("cluster.node.statistics", persistent: true);
+                realm.TopicContainer.CreateTopicByUri("cluster.node.state.refresh", persistent: true);
 
-                // Temporary diagnostic dump of cluster node-stats events.
-                realm.TopicContainer.GetTopicByUri("cluster.node-stats").Subscribe(
-                    new TopicDumpSubscriber("cluster.node-stats")
+                // Temporary diagnostic dump of cluster node-status events.
+                realm.TopicContainer.GetTopicByUri("cluster.node.state").Subscribe(
+                    new TopicDumpSubscriber("cluster.node.state")
+                );
+                // Temporary diagnostic dump of cluster node-status events.
+                realm.TopicContainer.GetTopicByUri("cluster.node.statistics").Subscribe(
+                    new TopicDumpSubscriber("cluster.node.statistics")
                 );
 
                 Console.WriteLine("Running (press enter to terminate).");

@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using Akka.Actor;
+using Akka.Cluster;
+using System;
 using WampSharp.V2;
 using WampSharp.V2.Client;
+using WampSharp.V2.Core.Contracts;
 
 namespace ClusterDemo.Actors.Service
 {
-    using Akka.Actor;
     using Common;
     using Messages;
-    using WampSharp.V2.Core.Contracts;
+    using System.Threading.Tasks;
 
     public class NodeMonitor
         : ReceiveActorEx
@@ -21,6 +18,7 @@ namespace ClusterDemo.Actors.Service
 
         readonly Uri    _wampHostUri;
         IWampChannel    _wampChannel;
+        IWampTopicProxy _stateTopic;
         IWampTopicProxy _statsTopic;
 
         public NodeMonitor(Uri wampHostUri)
@@ -35,16 +33,35 @@ namespace ClusterDemo.Actors.Service
                 _wampHostUri.AbsoluteUri
             );
 
+            ReceiveAsync<ClusterEvent.IMemberEvent>(async memberEvent =>
+            {
+                await PublishStatus(
+                    memberEvent.Member.Address.ToString(),
+                    memberEvent.Member.Status.ToString()
+                );
+            });
+            ReceiveAsync<ClusterEvent.CurrentClusterState>(async clusterState =>
+            {
+                foreach (Member member in clusterState.Members)
+                {
+                    await PublishStatus(
+                        member.Address.ToString(),
+                        member.Status.ToString()
+                    );
+                }
+            });
             ReceiveAsync<NodeStats>(async nodeStats =>
             {
                 await _statsTopic.Publish(new PublishOptions(),
                     new object[] { nodeStats }
                 );
             });
+
             Receive<ConnectionState>(connectionState =>
             {
                 if (connectionState == ConnectionState.Disconnected)
                 {
+                    _stateTopic = null;
                     _statsTopic = null;
 
                     Become(Disconnected);
@@ -65,7 +82,8 @@ namespace ClusterDemo.Actors.Service
             {
                 if (connectionState == ConnectionState.Connected)
                 {
-                    _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node-stats");
+                    _stateTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.state");
+                    _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
 
                     Become(Connected);
                 }
@@ -88,6 +106,15 @@ namespace ClusterDemo.Actors.Service
                 realm: "ClusterDemo"
             );
 
+            Cluster cluster = Cluster.Get(Context.System);
+            cluster.Subscribe(Self,
+                typeof(ClusterEvent.MemberJoined),
+                typeof(ClusterEvent.MemberLeft),
+                typeof(ClusterEvent.MemberRemoved),
+                typeof(ClusterEvent.MemberExited),
+                typeof(ClusterEvent.MemberStatusChange)
+            );
+
             IActorRef self = Self;
             _wampChannel.RealmProxy.Monitor.ConnectionEstablished += (sender, args) =>
             {
@@ -99,7 +126,12 @@ namespace ClusterDemo.Actors.Service
             };
 
             _wampChannel.Open().Wait();
-            _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node-stats");
+            _stateTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.state");
+            _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
+            _wampChannel.RealmProxy.Services.GetSubject<bool>("cluster.node.state.refresh").Subscribe(_ =>
+            {
+                cluster.SendCurrentClusterState(self);
+            });
 
             Become(Connected);
         }
@@ -112,6 +144,24 @@ namespace ClusterDemo.Actors.Service
             _wampChannel = null;
         }
 
+        Task PublishStatus(string nodeName, string nodeState)
+        {
+            return _stateTopic.Publish(new PublishOptions(), new[]
+            {
+                new ClusterNodeStatus
+                {
+                    Name = nodeName,
+                    State = nodeState
+                }
+            });
+        }
+        Task PublishStatistics(NodeStats nodeStatistics)
+        {
+            return _stateTopic.Publish(new PublishOptions(),
+                new[] { nodeStatistics }
+            );
+        }
+
         public static Props Create(Uri wampHostUri)
         {
             return Props.Create<NodeMonitor>(wampHostUri);
@@ -121,6 +171,13 @@ namespace ClusterDemo.Actors.Service
         {
             Connected,
             Disconnected
+        }
+
+        public class ClusterNodeStatus
+        {
+            public string Name { get; set; }
+
+            public string State { get; set; }
         }
     }
 }

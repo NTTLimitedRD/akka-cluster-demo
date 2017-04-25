@@ -21,8 +21,8 @@
             {
                 const nodePanels = {};
 
-                // The WAMP port number is always 100 more than the web one.
-                const wampPort = window.location.port + 100;
+                // The WAMP port number is always 1 more than the web one.
+                const wampPort = parseInt(window.location.port) + 1;
 
                 const connection = new autobahn.Connection({
                     url: `ws://localhost:${wampPort}`,
@@ -30,23 +30,24 @@
                 });
                 connection.onopen = (session, details) =>
                 {
-                    session.subscribe("cluster-nodes", args =>
+                    session.subscribe("cluster.node.state", args =>
                     {
                         const message = args[0];
 
                         console.log(
-                            `'${message.Name}' => '${message.State}'`
+                            `'${message.Name.replace("akka.tcp://ClusterDemo@", "")}' => '${message.State}'`
                         );
 
                         let nodePanel = nodePanels[message.Name];
                         if (!nodePanel)
                         {
                             const root = $(`
-                                <div class="ui card">
+                                <div class="ui card" style="width:250px; height: 250px; margin-top: 14px;">
                                     <div class="content">
-                                        <a class="header node-name">${message.Name}</h4>
+                                        <a class="header node-name">${message.Name.replace("akka.tcp://ClusterDemo@", "")}</h4>
                                         <div class="meta">
-                                            <span class="node-state">${message.State}</span>
+                                            <span class="node-state">${message.State}</span><br/>
+                                            <span class="node-stats"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -54,7 +55,8 @@
                             nodePanel = {
                                 root: root,
                                 name: root.find("div.content a.node-name"),
-                                state: root.find("div.content div.meta span.node-state")
+                                state: root.find("div.content div.meta span.node-state"),
+                                stats: root.find("div.content div.meta span.node-stats")
                             };
                             nodePanels[message.Name] = nodePanel;
 
@@ -69,7 +71,19 @@
                             delete nodePanels[message.Name];
                         }
                     });
-                    session.publish("refresh-cluster-state", [true]);
+                    session.subscribe("cluster.node.statistics", args => {
+                        const message = args[0];
+
+                        console.log(`Got statistics for node ${message.NodeAddress.replace("akka.tcp://ClusterDemo@", "")}.`)
+                        let nodePanel = nodePanels[message.NodeAddress];
+                        if (!nodePanel)
+                            return;
+
+                        nodePanel.stats.html(
+                            `Available workers: ${message.AvailableWorkerCount}<br/>Active workers: ${message.AvailableWorkerCount}`
+                        );
+                    });
+                    session.publish("cluster.node.state.refresh", [true]);
 
                     $("#lblStatus").text("Connected.");
                 };
