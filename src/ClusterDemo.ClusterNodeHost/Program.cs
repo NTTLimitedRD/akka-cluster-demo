@@ -5,6 +5,7 @@ using System.Threading;
 namespace ClusterDemo.ClusterNodeHost
 {
     using Actors.Service;
+    using WampSharp.V2;
 
     class Program
     {
@@ -24,7 +25,8 @@ namespace ClusterDemo.ClusterNodeHost
                     {
                         "akka.tcp://ClusterApp@127.0.0.1:14121",
                         "akka.tcp://ClusterApp@127.0.0.1:14122"
-                    }
+                    },
+                    wampHostUri: new Uri("ws://127.0.0.1:14501")
                 );
                 app.Start();
 
@@ -36,12 +38,15 @@ namespace ClusterDemo.ClusterNodeHost
             {
                 Log.Error(unexpectedError, "Unexpected error: {ErrorMessage}", unexpectedError.Message);
             }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
 
         static void ConfigureLogging()
         {
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Verbose()
                 .WriteTo.ColoredConsole(
                     outputTemplate: "[{Level}] {Message}{NewLine}{Exception}"
                 )

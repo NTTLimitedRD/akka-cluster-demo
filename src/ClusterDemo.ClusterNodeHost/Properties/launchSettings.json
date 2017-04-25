@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ClusterDemo.ClusterNodeHost": {
+      "commandName": "Project",
+      "commandLineArgs": "14121"
+    }
+  }
+}

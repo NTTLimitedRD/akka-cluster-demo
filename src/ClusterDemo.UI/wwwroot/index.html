@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Cluster monitor</title>
+
+        <link rel="stylesheet" href="css/semantic.css">
+
+        <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+    </head>
+    <body>
+        <h1>Cluster monitor</h1>
+        
+        <div id="container" class="ui two column doubling stackable grid container">
+        </div>
+
+        <hr />
+        <div id="lblStatus">Initialising...</div>
+
+        <script type="text/javascript">
+            $(() =>
+            {
+                const nodePanels = {};
+
+                // The WAMP port number is always 100 more than the web one.
+                const wampPort = window.location.port + 100;
+
+                const connection = new autobahn.Connection({
+                    url: `ws://localhost:${wampPort}`,
+                    realm: "ClusterDemo"
+                });
+                connection.onopen = (session, details) =>
+                {
+                    session.subscribe("cluster-nodes", args =>
+                    {
+                        const message = args[0];
+
+                        console.log(
+                            `'${message.Name}' => '${message.State}'`
+                        );
+
+                        let nodePanel = nodePanels[message.Name];
+                        if (!nodePanel)
+                        {
+                            const root = $(`
+                                <div class="ui card">
+                                    <div class="content">
+                                        <a class="header node-name">${message.Name}</h4>
+                                        <div class="meta">
+                                            <span class="node-state">${message.State}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                            nodePanel = {
+                                root: root,
+                                name: root.find("div.content a.node-name"),
+                                state: root.find("div.content div.meta span.node-state")
+                            };
+                            nodePanels[message.Name] = nodePanel;
+
+                            $("#container").append(nodePanel.root);
+                        }
+                        else
+                            nodePanel.state.text(message.State);
+
+                        if (message.State == "Removed")
+                        {
+                            nodePanel.root.remove();
+                            delete nodePanels[message.Name];
+                        }
+                    });
+                    session.publish("refresh-cluster-state", [true]);
+
+                    $("#lblStatus").text("Connected.");
+                };
+                connection.onclose = (reason, details) =>
+                {
+                    $("#lblStatus").text("Disconnected.");
+                };
+                
+                $("#lblStatus").text("Connecting...");
+                connection.open();
+            });
+        </script>
+
+        <script src="js/autobahn.js"></script>
+        <script src="js/semantic.js"></script>
+    </body>
+</html>
