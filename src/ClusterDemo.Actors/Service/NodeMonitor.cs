@@ -19,7 +19,7 @@ namespace ClusterDemo.Actors.Service
         readonly Uri    _wampHostUri;
         IWampChannel    _wampChannel;
         IWampTopicProxy _stateTopic;
-        IWampTopicProxy _statsTopic;
+        IWampTopicProxy _statisticsTopic;
 
         public NodeMonitor(Uri wampHostUri)
         {
@@ -60,7 +60,7 @@ namespace ClusterDemo.Actors.Service
                 if (connectionState == ConnectionState.Disconnected)
                 {
                     _stateTopic = null;
-                    _statsTopic = null;
+                    _statisticsTopic = null;
 
                     Become(Disconnected);
                 }
@@ -81,7 +81,7 @@ namespace ClusterDemo.Actors.Service
                 if (connectionState == ConnectionState.Connected)
                 {
                     _stateTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.state");
-                    _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
+                    _statisticsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
 
                     Become(Connected);
                 }
@@ -125,7 +125,7 @@ namespace ClusterDemo.Actors.Service
 
             _wampChannel.Open().Wait();
             _stateTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.state");
-            _statsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
+            _statisticsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
             _wampChannel.RealmProxy.Services.GetSubject<bool>("cluster.node.state.refresh").Subscribe(_ =>
             {
                 cluster.SendCurrentClusterState(self);
@@ -155,7 +155,7 @@ namespace ClusterDemo.Actors.Service
         }
         Task PublishStatistics(NodeStats nodeStatistics)
         {
-            return _stateTopic.Publish(new PublishOptions(),
+            return _statisticsTopic.Publish(new PublishOptions(),
                 new[] { nodeStatistics }
             );
         }

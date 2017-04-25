@@ -13,6 +13,8 @@ namespace ClusterDemo.Actors.Service
     using Common.Messages;
     using Messages;
 
+    // BUG: The forwarder seems to receive each WorkerAvailable message twice.
+
     public class WorkerEventForwarder
         : ReceiveActorEx, IWithUnboundedStash
     {

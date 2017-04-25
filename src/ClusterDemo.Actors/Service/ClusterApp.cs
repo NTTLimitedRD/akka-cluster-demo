@@ -92,10 +92,6 @@ namespace ClusterDemo.Actors.Service
                 IActorRef statsCollector = _system.ActorOf(
                     StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
                 );
-
-                PubSub.DistributedPubSub.Get(_system).Publish("dispatcher",
-                    new Messages.DispatcherAvailable(statsCollector)
-                );
             }
         }
 

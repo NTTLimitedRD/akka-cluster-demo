@@ -8,6 +8,7 @@ namespace ClusterDemo.Actors.Service
     using Messages;
 
     // TODO: Store creation, start, and end times for each job. This will make it easier to calculate stats.
+    // TODO: Dispatcher should probably calculate and publish dispatcher stats (whether by itself or via a child actor).
 
     public class StatsCollector
         : ReceiveActorEx

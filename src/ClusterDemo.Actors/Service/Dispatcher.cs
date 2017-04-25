@@ -2,6 +2,7 @@
 using Akka.Cluster.Tools.Client;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using PubSub = Akka.Cluster.Tools.PublishSubscribe;
 
@@ -17,7 +18,7 @@ namespace ClusterDemo.Actors.Service
         public static readonly string ActorName = "dispatcher";
 
         readonly Queue<Job> _pendingJobs = new Queue<Job>();
-        readonly Queue<IActorRef> _availableWorkers = new Queue<IActorRef>();
+        readonly HashSet<IActorRef> _availableWorkers = new HashSet<IActorRef>();
         readonly Dictionary<int, Job> _activeJobs = new Dictionary<int, Job>();
         readonly Dictionary<IActorRef, int> _activeJobsByWorker = new Dictionary<IActorRef, int>();
         readonly IActorRef _workerEvents;
@@ -48,10 +49,11 @@ namespace ClusterDemo.Actors.Service
             });
             Receive<WorkerAvailable>(workerAvailable =>
             {
+                if (!_availableWorkers.Add(workerAvailable.Worker))
+                    return;
+
                 Log.Info("Dispatcher has available worker {Worker}.", workerAvailable.Worker);
-
-                _availableWorkers.Enqueue(workerAvailable.Worker);
-
+                
                 ScheduleDispatch();
             });
             Receive<Dispatch>(_ =>
@@ -64,7 +66,8 @@ namespace ClusterDemo.Actors.Service
                 while (_pendingJobs.Count > 0 && _availableWorkers.Count > 0)
                 {
                     Job pendingJob = _pendingJobs.Dequeue();
-                    IActorRef worker = _availableWorkers.Dequeue();
+                    IActorRef worker = _availableWorkers.First();
+                    _availableWorkers.Remove(worker);
 
                     Log.Info("Dispatcher is dispatching job {JobId} to worker {Worker}.",
                         pendingJob.Id,
@@ -242,6 +245,11 @@ namespace ClusterDemo.Actors.Service
             public string Name { get; }
             public IActorRef Worker { get; }
             public ICancelable Timeout { get; }
+
+            public Job WithTimeout(ICancelable timeout)
+            {
+                return new Job(Id, Name, Worker, timeout);
+            }
 
             public Job WithWorker(IActorRef worker, ICancelable timeout)
             {
