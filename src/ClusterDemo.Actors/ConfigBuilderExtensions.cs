@@ -161,7 +161,7 @@ namespace ClusterDemo.Actors
             return configBuilder;
         }
 
-        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes, int? minNumberOfMembers = null)
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<Address> seedNodes, int? minNumberOfMembers = null, TimeSpan? autoDownUnreachableMembersAfter = null)
         {
             if (configBuilder == null)
                 throw new ArgumentNullException(nameof(configBuilder));
@@ -178,10 +178,17 @@ namespace ClusterDemo.Actors
             if (minNumberOfMembers != null)
                 configBuilder.Entries["akka.cluster.min-nr-of-members"] = minNumberOfMembers;
 
+            if (autoDownUnreachableMembersAfter != null)
+            {
+                configBuilder.Entries["akka.cluster.auto-down-unreachable-after"] = String.Format("{0}s",
+                    (long)autoDownUnreachableMembersAfter.Value.TotalSeconds
+                );
+            }
+
             return configBuilder.UseClusterActorRefProvider();
         }
 
-        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<string> seedNodes = null, int? minNumberOfMembers = null)
+        public static ConfigBuilder UseCluster(this ConfigBuilder configBuilder, IEnumerable<string> seedNodes = null, int? minNumberOfMembers = null, TimeSpan? autoDownUnreachableMembersAfter = null)
         {
             if (configBuilder == null)
                 throw new ArgumentNullException(nameof(configBuilder));
@@ -191,6 +198,13 @@ namespace ClusterDemo.Actors
 
             if (minNumberOfMembers != null)
                 configBuilder.Entries["akka.cluster.min-nr-of-members"] = minNumberOfMembers;
+
+            if (autoDownUnreachableMembersAfter != null)
+            {
+                configBuilder.Entries["akka.cluster.auto-down-unreachable-after"] = String.Format("{0}s",
+                    (long)autoDownUnreachableMembersAfter.Value.TotalSeconds
+                );
+            }
 
             return configBuilder.UseClusterActorRefProvider();
         }

@@ -120,7 +120,9 @@ namespace ClusterDemo.Actors.Service
             return new ConfigBuilder()
                 .AddLogger<SerilogLogger>()
                 .SetLogLevel(Akka.Event.LogLevel.InfoLevel)
-                .UseCluster(_seedNodes, minNumberOfMembers: 1 /* for demo purposes, we have a small cluster to play with */)
+                .UseCluster(_seedNodes,
+                    minNumberOfMembers: 1 // For demo purposes, we have a small cluster to play with and don't want to stuff around with lighthouses.
+                )
                 .UseRemoting(LocalNodeAddress.Host, LocalNodeAddress.Port.Value)
                 .UseHyperionSerializer()
                 .Build();
