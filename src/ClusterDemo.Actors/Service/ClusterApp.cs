@@ -84,7 +84,7 @@ namespace ClusterDemo.Actors.Service
 
                 // Worker pool (one per node).
                 IActorRef workerPool = _system.ActorOf(
-                    WorkerPool.Create(workerCount: 5, workerEvents: workerEvents),
+                    WorkerPool.Create(workerCount: 10, workerEvents: workerEvents),
                     name: WorkerPool.ActorName
                 );
 

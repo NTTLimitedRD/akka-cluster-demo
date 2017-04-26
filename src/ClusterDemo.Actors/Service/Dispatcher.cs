@@ -165,7 +165,7 @@ namespace ClusterDemo.Actors.Service
 
             // Tell interested parties that a Dispatcher is now available.
             _pubSub.Publish("dispatcher",
-                new DispatcherAvailable(Self)
+                new DispatcherAvailable(Self, isFirstAnnouncement: true)
             );
 
             // Periodically republish our availability.
@@ -196,7 +196,7 @@ namespace ClusterDemo.Actors.Service
         ICancelable ScheduleJobTimeout(int jobId)
         {
             return ScheduleTellSelfOnceCancelable(
-                delay: TimeSpan.FromSeconds(10),
+                delay: TimeSpan.FromSeconds(30),
                 message: new JobTimeout(jobId)
             );
         }

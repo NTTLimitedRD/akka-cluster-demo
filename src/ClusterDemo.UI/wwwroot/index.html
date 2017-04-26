@@ -42,7 +42,7 @@
                         if (!nodePanel)
                         {
                             const root = $(`
-                                <div class="ui card" style="width:250px; height: 250px; margin-top: 14px;">
+                                <div class="ui card" style="width:250px; height: 250px; margin: 14px; ">
                                     <div class="content">
                                         <a class="header node-name">${message.Name.replace("akka.tcp://ClusterDemo@", "")}</h4>
                                         <div class="meta">
@@ -79,8 +79,16 @@
                         if (!nodePanel)
                             return;
 
+                        let utilization = 0;
+                        if (message.TotalWorkerCount > 0)
+                        {
+                            utilization = Math.floor(
+                                (message.ActiveWorkerCount / message.TotalWorkerCount) * 100
+                            );
+                        }
+
                         nodePanel.stats.html(
-                            `Available workers: ${message.AvailableWorkerCount}<br/>Active workers: ${message.AvailableWorkerCount}`
+                            `Available workers: ${message.AvailableWorkerCount}<br/>Active workers: ${message.ActiveWorkerCount}<br/>Utilisation: ${utilization}%`
                         );
                     });
                     session.publish("cluster.node.state.refresh", [true]);

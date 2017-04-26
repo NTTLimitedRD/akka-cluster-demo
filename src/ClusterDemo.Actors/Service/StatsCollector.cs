@@ -1,5 +1,6 @@
 ﻿using Akka.Actor;
 using System;
+using System.Collections.Generic;
 
 namespace ClusterDemo.Actors.Service
 {
@@ -13,12 +14,16 @@ namespace ClusterDemo.Actors.Service
     public class StatsCollector
         : ReceiveActorEx
     {
-        readonly IActorRef  _nodeMonitor;
-        readonly IActorRef  _workerEvents;
-        readonly Address    _localNodeAddress;
-        
-        int _availableWorkerCount;
-        int _activeWorkerCount;
+        readonly HashSet<IActorRef> _allWorkers = new HashSet<IActorRef>();
+        readonly HashSet<IActorRef> _availableWorkers = new HashSet<IActorRef>();
+        readonly HashSet<IActorRef> _activeWorkers = new HashSet<IActorRef>();
+
+        readonly IActorRef          _nodeMonitor;
+        readonly IActorRef          _workerEvents;
+        readonly Address            _localNodeAddress;
+
+        // TODO: These value are wrong because we can't reliably know them (ditto for actual worker counts).
+        // Instead, have the dispatcher determine and publish them.
         TimeSpan _averageJobExecutionTime;
         TimeSpan _averageJobTurnaroundTime; // TODO: Calculate this as the period between job start and end times.
 
@@ -30,16 +35,17 @@ namespace ClusterDemo.Actors.Service
 
             Receive<WorkerAvailable>(workerAvailable =>
             {
-                _availableWorkerCount++;
+                _allWorkers.Add(workerAvailable.Worker);
+                _availableWorkers.Add(workerAvailable.Worker);
             });
             Receive<JobStarted>(jobStarted =>
             {
-                _availableWorkerCount--;
-                _activeWorkerCount++;
+                _availableWorkers.Remove(jobStarted.Worker);
+                _activeWorkers.Add(jobStarted.Worker);
             });
             Receive<JobCompleted>(jobCompleted =>
             {
-                _activeWorkerCount--;
+                _activeWorkers.Remove(jobCompleted.Worker);
 
                 // TODO: Consider using a running average instead.
                 _averageJobExecutionTime = TimeSpan.FromTicks(
@@ -51,8 +57,9 @@ namespace ClusterDemo.Actors.Service
             {
                 _nodeMonitor.Tell(new NodeStats(
                     nodeAddress: _localNodeAddress.ToString(),
-                    availableWorkerCount: _availableWorkerCount,
-                    activeWorkerCount: _activeWorkerCount,
+                    totalWorkerCount: _allWorkers.Count,
+                    availableWorkerCount: _availableWorkers.Count,
+                    activeWorkerCount: _activeWorkers.Count,
                     averageJobExecutionTime: _averageJobExecutionTime,
                     averageJobTurnaroundTime: _averageJobTurnaroundTime
                 ));
@@ -66,7 +73,7 @@ namespace ClusterDemo.Actors.Service
             _workerEvents.Tell(
                 new Subscribe(Self, eventTypes: new[]
                 {
-                    typeof(JobCreated),
+                    typeof(WorkerAvailable),
                     typeof(JobStarted),
                     typeof(JobCompleted)
                 })

@@ -4,6 +4,7 @@ using System;
 namespace ClusterDemo.Actors.Service
 {
     using Common;
+    using Common.Messages;
     using Messages;
 
     public class Worker
@@ -21,7 +22,25 @@ namespace ClusterDemo.Actors.Service
             _workerEvents = workerEvents;
         }
 
-        public void WaitingForJob()
+        void WaitingForDispatcher()
+        {
+            Log.Info("Worker {Worker} waiting for initial announcement from dispatcher.", Self.Path);
+
+            // If dispatcher moves or is restarted, re-announce ourselves.
+            Receive<DispatcherAvailable>(dispatcherAvailable =>
+            {
+                Log.Info("Worker {Worker} received initial announcement from dispatcher {Dispatcher}.",
+                    Self.Path,
+                    dispatcherAvailable.Dispatcher.Path.ToStringWithAddress()
+                );
+
+                _currentDispatcher = dispatcherAvailable.Dispatcher;
+
+                Become(WaitingForJob);
+            });
+        }
+
+        void WaitingForJob()
         {
             Log.Info("Worker {Worker} waiting for job.", Self.Path);
             _workerEvents.Tell(
@@ -38,7 +57,7 @@ namespace ClusterDemo.Actors.Service
                 // TODO: Call fake work API.
                 // For now, just reply after random delay.
                 TimeSpan jobExecutionTime = TimeSpan.FromSeconds(
-                    new Random().Next(3, 5)
+                    new Random().Next(1, 10)
                 );
                 ScheduleTellSelfOnce(
                     delay: jobExecutionTime,
@@ -47,14 +66,19 @@ namespace ClusterDemo.Actors.Service
                     )
                 );
 
+                _workerEvents.Tell(new JobStarted(
+                    worker: Self,
+                    id: executeJob.Id
+                ));
+
                 Become(ExecutingJob);
             });
 
             // If dispatcher moves or is restarted, re-announce ourselves.
             Receive<DispatcherAvailable>(dispatcherAvailable =>
             {
-                if (_currentDispatcher != null && _currentDispatcher.Equals(dispatcherAvailable.Dispatcher))
-                    return;
+                if (_currentDispatcher.Equals(dispatcherAvailable.Dispatcher) && !dispatcherAvailable.IsFirstAnnouncement)
+                    return; // We already know about this dispatcher; no need to re-announce ourselves.
 
                 _currentDispatcher = dispatcherAvailable.Dispatcher;
                 _workerEvents.Tell(
@@ -79,7 +103,7 @@ namespace ClusterDemo.Actors.Service
         {
             base.PreStart();
 
-            Become(WaitingForJob);
+            Become(WaitingForDispatcher);
         }
 
         public static Props Create(int id, IActorRef workerEvents)
