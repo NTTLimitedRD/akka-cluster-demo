@@ -1,43 +1,43 @@
 ﻿using Akka.Actor;
 using Akka.Cluster;
-using Akka.Cluster.Tools.Client;
-using Akka.Cluster.Tools.Singleton;
 using Akka.Configuration;
 using Akka.Logger.Serilog;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
-
-using PubSub = Akka.Cluster.Tools.PublishSubscribe;
 
 namespace ClusterDemo.Actors.Service
 {
     public class ClusterApp
     {
         readonly object _stateLock = new object();
-        readonly Address[]  _seedNodes;
-        Uri _wampHostUri;
-        ActorSystem _system;
 
-        public ClusterApp(string actorSystemName, string host, int port, string[] seedNodes, Uri wampHostUri)
+        ActorSystem _system;
+        IActorRef _clusterNodeManager;
+
+        public ClusterApp(string actorSystemName, string host, int port, IEnumerable<string> seedNodes, Uri wampHostUri, int initialWorkerCount)
         {
             LocalNodeAddress = new Address("akka.tcp", actorSystemName, host, port);
 
-            if (seedNodes.Length == 0)
+            SeedNodes = seedNodes.Select(Address.Parse).ToArray();
+            if (SeedNodes.Count == 0)
                 throw new ArgumentException("Must specify at least one seed node.", nameof(seedNodes));
 
-            _seedNodes = new Address[seedNodes.Length];
-            for (int seedNodeIndex = 0; seedNodeIndex < seedNodes.Length; seedNodeIndex++)
-                _seedNodes[seedNodeIndex] = Address.Parse(seedNodes[seedNodeIndex]);
-
-            _wampHostUri = wampHostUri;
+            WampHostUri = wampHostUri;
+            InitialWorkerCount = initialWorkerCount;
         }
 
-        Address LocalNodeAddress { get; }
+        public Address LocalNodeAddress { get; }
+
+        public IReadOnlyList<Address> SeedNodes { get; }
+
+        public Uri WampHostUri { get; }
+
+        public int InitialWorkerCount { get; }
 
         public void Start()
         {
@@ -52,46 +52,11 @@ namespace ClusterDemo.Actors.Service
                     config: CreateConfig()
                 );
 
-                // Node monitor (one per node).
-                IActorRef nodeMonitor = _system.ActorOf(
-                    NodeMonitor.Create(_wampHostUri),
-                    name: NodeMonitor.ActorName
-                );
-
-                // Worker event bus (one per node).
-                IActorRef workerEvents = _system.ActorOf(
-                    Props.Create<WorkerEvents>(),
-                    name: WorkerEvents.ActorName
-                );
-
-                // Worker event-forwarder.
-                IActorRef workerEventForwarder = _system.ActorOf(
-                    Props.Create(
-                        () => new WorkerEventForwarder(workerEvents)
-                    ),
-                    name: WorkerEventForwarder.ActorName
-                );
-
-                // Dispatcher (cluster-wide singleton).
-                IActorRef dispatcher = _system.ActorOf(
-                    ClusterSingletonManager.Props(
-                        singletonProps: Dispatcher.Create(workerEvents),
-                        terminationMessage: PoisonPill.Instance, // TODO: Use a more-specific message
-                        settings: ClusterSingletonManagerSettings.Create(_system)
-                    ),
-                    name: Dispatcher.ActorName
-                );
-
-                // Worker pool (one per node).
-                IActorRef workerPool = _system.ActorOf(
-                    WorkerPool.Create(workerCount: 10, workerEvents: workerEvents),
-                    name: WorkerPool.ActorName
-                );
-
-                // Node statistics collector (one per node).
-                IActorRef statsCollector = _system.ActorOf(
-                    StatsCollector.Create(nodeMonitor, workerEvents, LocalNodeAddress)
-                );
+                _clusterNodeManager = _system.ActorOf(ClusterNodeManager.Create(
+                    localNodeAddress: LocalNodeAddress,
+                    wampHostUri: WampHostUri,
+                    initialWorkerCount: InitialWorkerCount
+                ));
             }
         }
 
@@ -102,17 +67,52 @@ namespace ClusterDemo.Actors.Service
                 if (_system == null)
                     throw new ArgumentNullException("Cluster app is not running.");
 
-                Log.Information("Leaving cluster...");
-                Cluster.Get(_system).LeaveAsync(CancellationToken.None)
-                    .ContinueWith(_ =>
-                    {
-                        Log.Information("Terminating actor system...");
+                try
+                {
+                    StopAsync().Wait();
+                }
+                catch (AggregateException aggregateException) // Unwrap, if appropriate.
+                {
+                    AggregateException flattenedAggregate = aggregateException.Flatten();
+                    if (flattenedAggregate.InnerExceptions.Count > 1)
+                        throw; // Genuine aggregate.
 
-                        _system.Terminate();
-                        _system = null;
-                    })
-                    .Wait();
+                    ExceptionDispatchInfo
+                        .Capture(flattenedAggregate.InnerExceptions[0])
+                        .Throw();
+                }
             }
+        }
+
+        async Task StopAsync()
+        {
+            try
+            {
+                if (_clusterNodeManager != null)
+                {
+                    Log.Information("Shutting down cluster node manager...");
+
+                    await _clusterNodeManager.GracefulStop(
+                        timeout: TimeSpan.FromSeconds(10)
+                    );
+                }
+
+                Log.Information("Leaving cluster...");
+
+                CancellationTokenSource cancellation = new CancellationTokenSource();
+                cancellation.CancelAfter(
+                    delay: TimeSpan.FromSeconds(10)
+                );
+                await Cluster.Get(_system).LeaveAsync(cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                Log.Warning("Timed out after waiting 10 seconds to leave the cluster; continuing with shutdown.");
+            }
+
+            Log.Information("Shutting down local actor system...");
+
+            await _system.Terminate();
         }
 
         Config CreateConfig()
@@ -120,7 +120,8 @@ namespace ClusterDemo.Actors.Service
             return new ConfigBuilder()
                 .AddLogger<SerilogLogger>()
                 .SetLogLevel(Akka.Event.LogLevel.InfoLevel)
-                .UseCluster(_seedNodes,
+                .UseCluster(
+                    seedNodes: SeedNodes,
                     minNumberOfMembers: 1 // For demo purposes, we have a small cluster to play with and don't want to stuff around with lighthouses.
                 )
                 .UseRemoting(LocalNodeAddress.Host, LocalNodeAddress.Port.Value)

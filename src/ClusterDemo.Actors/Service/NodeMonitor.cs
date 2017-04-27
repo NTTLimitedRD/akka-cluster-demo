@@ -20,6 +20,7 @@ namespace ClusterDemo.Actors.Service
         IWampChannel    _wampChannel;
         IWampTopicProxy _stateTopic;
         IWampTopicProxy _statisticsTopic;
+        IDisposable     _clusterStateSubscription;
 
         public NodeMonitor(Uri wampHostUri)
         {
@@ -126,17 +127,19 @@ namespace ClusterDemo.Actors.Service
             _wampChannel.Open().Wait();
             _stateTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.state");
             _statisticsTopic = _wampChannel.RealmProxy.TopicContainer.GetTopicByUri("cluster.node.statistics");
-            _wampChannel.RealmProxy.Services.GetSubject<bool>("cluster.node.state.refresh").Subscribe(_ =>
+            _clusterStateSubscription = _wampChannel.RealmProxy.Services.GetSubject<bool>("cluster.node.state.refresh").Subscribe(_ =>
             {
                 cluster.SendCurrentClusterState(self);
             });
-
             Become(Connected);
         }
 
         protected override void PostStop()
         {
             base.PostStop();
+
+            _clusterStateSubscription?.Dispose();
+            _clusterStateSubscription = null;
 
             _wampChannel.Close();
             _wampChannel = null;

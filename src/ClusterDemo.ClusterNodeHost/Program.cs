@@ -9,7 +9,7 @@ namespace ClusterDemo.ClusterNodeHost
 
     class Program
     {
-        static void Main(string[] args)
+        static void Main(string[] commandLineArguments)
         {
             SynchronizationContext.SetSynchronizationContext(
                 new SynchronizationContext()
@@ -24,9 +24,10 @@ namespace ClusterDemo.ClusterNodeHost
                 ClusterApp app = new ClusterApp(
                     actorSystemName: "ClusterDemo",
                     host: "127.0.0.1",
-                    port: Int32.Parse(args[0]),
+                    port: Int32.Parse(commandLineArguments[0]),
                     seedNodes: new[] { "akka.tcp://ClusterDemo@127.0.0.1:14121" },
-                    wampHostUri: new Uri("ws://127.0.0.1:14501")
+                    wampHostUri: new Uri("ws://127.0.0.1:14501"),
+                    initialWorkerCount: 5
                 );
                 app.Start();
 

@@ -1,128 +1,64 @@
 ﻿using Akka.Actor;
+using Akka.Actor.Dsl;
 using System;
-using System.Net;
-using System.Net.Http;
 
 namespace ClusterDemo.Actors
 {
     /// <summary>
-    ///		Standard supervision strategies.
+    ///		Helper methods for inline supervision.
     /// </summary>
-    /// <remarks>
-    ///		TODO: Add logging for supervision decisions.
-    /// </remarks>
-    public static class StandardSupervision
+    public static class InlineSupervision
     {
         /// <summary>
-        ///		The default number of times an actor will be restarted before it is stoppped.
+        ///		Create an actor with inline supervision.
         /// </summary>
-        public static readonly int DefaultMaximumRetryCount = 3;
-
-        /// <summary>
-        ///		The default span of time within which the maximum retry count cannot be exceeded without triggering an actor stop.
-        /// </summary>
-        public static readonly TimeSpan DefaultRetryCountWithin = TimeSpan.FromSeconds(10);
-
-        /// <summary>
-        ///		Standard platform supervision deciders.
-        /// </summary>
-        public static class Deciders
-        {
-            /// <summary>
-            ///		The standard platform supervision decider for actors that use an <see cref="HttpClient"/>.
-            /// </summary>
-            public static LocalOnlyDecider ForHttpClient
-            {
-                get
-                {
-                    return Decider.From(exception =>
-                    {
-                        // Must be raised by the HttpClient / ClientMessageHandler.
-                        if (!(exception is HttpRequestException))
-                            return Directive.Escalate;
-
-                        // If using ClientMessageHandler as the HttpClient message pipeline terminus, every call eventually winds up as a WebRequest.
-                        WebException webException = exception.FindInnerException<WebException>();
-                        if (webException == null)
-                            return Directive.Escalate; // Doesn't handle exception caused by response.EnsureSuccessStatusCode().
-
-                        switch (webException.Status)
-                        {
-                            case WebExceptionStatus.ConnectFailure:
-                            case WebExceptionStatus.ConnectionClosed:
-                            case WebExceptionStatus.NameResolutionFailure:
-                            {
-                                return Directive.Restart;
-                            }
-                            case WebExceptionStatus.ProtocolError:
-                            {
-                                HttpWebResponse response = webException.Response as HttpWebResponse;
-                                if (response == null)
-                                    return Directive.Escalate; // Shouldn't be possible in normal circumstances.
-
-                                switch (response.StatusCode)
-                                {
-                                    case HttpStatusCode.GatewayTimeout:
-                                    case HttpStatusCode.InternalServerError:
-                                    case HttpStatusCode.RequestTimeout:
-                                    case HttpStatusCode.ServiceUnavailable:
-                                    {
-                                        return Directive.Restart;
-                                    }
-                                }
-
-                                break;
-                            }
-                            default:
-                            {
-                                return Directive.Restart; // Assume client is borked.
-                            }
-                        }
-
-                        return Directive.Escalate; // No idea what the problem is; let parent supervisor handle it.
-                    });
-                }
-            }
-
-            /// <summary>
-            ///		The standard platform supervision decider for actors that use an <see cref="HttpClient"/> that is aggregated by another component.
-            /// </summary>
-            public static LocalOnlyDecider ForAggregatedHttpClient
-            {
-                get
-                {
-                    // Close over a single instance.
-                    LocalOnlyDecider forHttpClient = ForHttpClient;
-
-                    return Decider.From(exception =>
-                    {
-                        HttpRequestException httpRequestException = exception as HttpRequestException ?? exception.FindInnerException<HttpRequestException>();
-
-                        return (httpRequestException != null) ? forHttpClient.Decide(httpRequestException) : Directive.Escalate;
-                    });
-                }
-            }
-        }
-
-        /// <summary>
-        ///		Create a supervisor strategy for actors that represent an HTTP client.
-        /// </summary>
-        /// <param name="maximumRetryCount">
-        ///		The number of times an actor will be restarted before it is stoppped.
+        /// <param name="actorRefFactory">
+        ///		The <see cref="IActorRefFactory"/> used to create the actor.
         /// </param>
-        /// <param name="retryCountWithin">
-        ///		The span of time within which the maximum retry count cannot be exceeded without triggering an actor stop.
+        /// <param name="props">
+        ///		<see cref="Props"/> used to construct the actor.
+        /// </param>
+        /// <param name="inlineSupervisorStrategy">
+        ///		The inline supervisor strategy used to supervise the actor.
+        /// </param>
+        /// <param name="name">
+        ///		An optional name for the actor.
         /// </param>
         /// <returns>
-        ///		The new supervisor strategy.
+        ///		A reference to the actor's supervisor (the supervisor will forward all messages to the supervised actor).
         /// </returns>
-        public static SupervisorStrategy ForHttpClient(int? maximumRetryCount = null, TimeSpan? retryCountWithin = null)
+        public static IActorRef SupervisedActorOf(this IActorRefFactory actorRefFactory, Props props, SupervisorStrategy inlineSupervisorStrategy, string name = null)
         {
-            return new OneForOneStrategy(
-                maximumRetryCount ?? DefaultMaximumRetryCount,
-                retryCountWithin ?? DefaultRetryCountWithin,
-                Deciders.ForHttpClient
-            );
+            if (actorRefFactory == null)
+                throw new ArgumentNullException(nameof(actorRefFactory));
+
+            if (inlineSupervisorStrategy == null)
+                throw new ArgumentNullException(nameof(inlineSupervisorStrategy));
+
+            return actorRefFactory.ActorOf(actor =>
+            {
+                actor.Strategy = inlineSupervisorStrategy;
+
+                IActorRef supervisedActor = null;
+
+                actor.OnPreStart = context =>
+                {
+                    supervisedActor = context.ActorOf(props, name);
+
+                    context.Watch(supervisedActor);
+                };
+
+                actor.Receive<Terminated>(terminated => terminated.ActorRef.Equals(supervisedActor),
+                    (terminated, context) => context.Stop(context.Self)
+                );
+                actor.ReceiveAny((message, context) =>
+                {
+                    if (ReferenceEquals(context.Sender, supervisedActor))
+                        context.Parent.Forward(message); // Act as if the supervised actor was directly under the supervisor's parent.
+                    else
+                        supervisedActor.Forward(message);
+                });
+            }, name: name + "-supervisor");
         }
     }
 }
